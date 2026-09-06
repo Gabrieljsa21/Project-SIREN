@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from siren.core import config as config_mod
 from siren.core import favoritos as favoritos_mod
+from siren.core import playlists as playlists_mod
 from siren.core.fila import Fila
 from siren.integrations import echo_client
 from siren.playback import orquestrador
@@ -28,6 +29,13 @@ from siren.ui.full.views.fila import ViewFila
 from siren.ui.full.views.historico import ViewHistorico
 from siren.ui.full.views.playlists import ViewPlaylists
 from siren.ui.full.views.tocando_agora import ViewTocandoAgora
+
+# Origens que contam como "descoberta do ECHO" pra fins da playlist
+# automática "Descobertas do SIREN" (seção 11 do ECHO_SPEC original,
+# adaptada - ver core/playlists.py::adicionar_a_descobertas). Faixa que veio
+# de playlist/favoritos/histórico/busca própria NUNCA entra aqui - só o que
+# o ECHO de fato descobriu pra você.
+ORIGENS_DESCOBERTA = {"caos", "descoberta"}
 
 NAVEGACAO = [
     ("now", "Tocando agora"),
@@ -128,10 +136,10 @@ class FullWindow(QWidget):
             "now": ViewTocandoAgora(ao_iniciar_caos=self._pedir_caos, player=self._player),
             "discover": ViewDescoberta(ao_tocar=self._tocar_faixa),
             "library": ViewEmConstrucao("Biblioteca"),
-            "playlists": ViewPlaylists(ao_tocar=self._tocar_faixa),
-            "favorites": ViewFavoritos(ao_tocar=self._tocar_faixa),
+            "playlists": ViewPlaylists(ao_tocar=self._tocar_faixa, fila=self._fila),
+            "favorites": ViewFavoritos(ao_tocar=self._tocar_faixa, fila=self._fila),
             "queue": ViewFila(self._fila, ao_tocar=self._tocar_faixa),
-            "history": ViewHistorico(ao_tocar=self._tocar_faixa),
+            "history": ViewHistorico(ao_tocar=self._tocar_faixa, fila=self._fila),
             "search": ViewEmConstrucao("Busca"),
         }
 
@@ -304,6 +312,8 @@ class FullWindow(QWidget):
         echo_client.enviar_feedback(self._faixa_atual["artista"], self._faixa_atual["titulo"], "positivo")
         self._botao_like.setChecked(True)
         self._botao_dislike.setChecked(False)
+        if self._faixa_atual["origem"] in ORIGENS_DESCOBERTA:
+            playlists_mod.adicionar_a_descobertas(self._faixa_atual["titulo"], self._faixa_atual["artista"])
 
     def _dislike(self):
         if not self._faixa_atual:

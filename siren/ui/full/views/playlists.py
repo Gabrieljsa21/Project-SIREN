@@ -6,11 +6,11 @@ from PySide6.QtWidgets import (
 )
 
 from siren.core import playlists as playlists_mod
-from siren.ui.full.widgets import PainelBaixarSelecionada
+from siren.ui.full.widgets import PainelAcoesFaixa
 
 
 class ViewPlaylists(QWidget):
-    def __init__(self, ao_tocar):
+    def __init__(self, ao_tocar, fila=None):
         super().__init__()
         self._ao_tocar = ao_tocar
         self._playlist_atual = None
@@ -49,7 +49,8 @@ class ViewPlaylists(QWidget):
         layout_detalhe.addWidget(botao_voltar)
         layout_detalhe.addWidget(self._rotulo_playlist_atual)
         layout_detalhe.addWidget(self._lista_faixas, stretch=1)
-        layout_detalhe.addWidget(PainelBaixarSelecionada(self._lista_faixas))
+        self._painel_acoes = PainelAcoesFaixa(self._lista_faixas, fila=fila, origem_padrao="playlist")
+        layout_detalhe.addWidget(self._painel_acoes)
 
         self._pilha.addWidget(self._lista_playlists)
         self._pilha.addWidget(painel_detalhe)
@@ -68,6 +69,7 @@ class ViewPlaylists(QWidget):
     def _abrir_playlist(self, item):
         nome = item.data(Qt.UserRole)
         self._playlist_atual = nome
+        self._painel_acoes.definir_origem_padrao(f"playlist:{nome}")
         self._rotulo_playlist_atual.setText(nome)
         self._lista_faixas.clear()
         for faixa in playlists_mod.obter_faixas(nome):
