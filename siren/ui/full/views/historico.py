@@ -3,6 +3,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
 
 from siren.core import historico_local as historico_mod
+from siren.ui.full.widgets import PainelBaixarSelecionada
 
 
 class ViewHistorico(QWidget):
@@ -25,6 +26,7 @@ class ViewHistorico(QWidget):
         layout.addWidget(titulo)
         layout.addWidget(legenda)
         layout.addWidget(self._lista, stretch=1)
+        layout.addWidget(PainelBaixarSelecionada(self._lista))
 
     def _tocar_item(self, item):
         faixa = item.data(Qt.UserRole)
