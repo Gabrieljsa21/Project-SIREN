@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 )
 
 from siren.core import playlists as playlists_mod
+from siren.ui.full.widgets import PainelBaixarSelecionada
 
 
 class ViewPlaylists(QWidget):
@@ -48,6 +49,7 @@ class ViewPlaylists(QWidget):
         layout_detalhe.addWidget(botao_voltar)
         layout_detalhe.addWidget(self._rotulo_playlist_atual)
         layout_detalhe.addWidget(self._lista_faixas, stretch=1)
+        layout_detalhe.addWidget(PainelBaixarSelecionada(self._lista_faixas))
 
         self._pilha.addWidget(self._lista_playlists)
         self._pilha.addWidget(painel_detalhe)
