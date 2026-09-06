@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 from siren.integrations import echo_client
 from siren.playback import orquestrador
 from siren.playback.player import Player
+from siren.ui import mode_switch
 
 
 class MainWindow(QMainWindow):
@@ -64,10 +65,14 @@ class MainWindow(QMainWindow):
         for botao in (self._botao_dislike, self._botao_anterior, self._botao_play_pause, self._botao_proximo, self._botao_like):
             linha_controles.addWidget(botao)
 
+        botao_modo_completo = QPushButton("Modo Completo →")
+        botao_modo_completo.clicked.connect(self._trocar_pro_completo)
+
         layout = QVBoxLayout()
         layout.addWidget(self._label_faixa)
         layout.addWidget(self._botao_caos)
         layout.addLayout(linha_controles)
+        layout.addWidget(botao_modo_completo)
 
         container = QWidget()
         container.setLayout(layout)
@@ -146,6 +151,9 @@ class MainWindow(QMainWindow):
         echo_client.enviar_feedback(self._faixa_atual["artista"], self._faixa_atual["titulo"], "negativo")
         self._atualizar_botoes_voto("negativo")
         self._tocar_proxima()
+
+    def _trocar_pro_completo(self):
+        mode_switch.trocar_modo(QApplication.instance(), self, "full")
 
     def closeEvent(self, event):
         self._player.encerrar()
