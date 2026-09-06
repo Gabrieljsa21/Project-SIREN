@@ -104,3 +104,24 @@ def obter_redescobertas(quantidade=3):
     dado local do ECHO, mas ainda depende do ECHO estar respondendo)."""
     dados = _get(f"/redescobertas?discord_user_id={DONO_DISCORD_ID}&quantidade={quantidade}")
     return (dados or {}).get("redescobertas", [])
+
+
+def obter_aprovados():
+    """`/perfil/aprovados` - faixas com 👍 desse `discord_user_id`, MESMO
+    ID que o Modo Música do ERIS usa quando é o dono na call (2026-09-06,
+    pedido do usuário: "não consegue já importar as músicas que gostei e
+    não gostei que coloquei enquanto ouvia pelo Discord?") - voto dado lá
+    já é O MESMO perfil do ECHO que o SIREN consulta, `core/importar_
+    votos_echo.py` usa isso pra semear favoritos/playlist/histórico locais
+    do SIREN. Devolve sempre uma lista (vazia se o ECHO estiver fora do ar)."""
+    dados = _get(f"/perfil/aprovados?discord_user_id={DONO_DISCORD_ID}")
+    return (dados or {}).get("aprovadas", [])
+
+
+def obter_desaprovados():
+    """`/perfil/desaprovados` - mesma ideia de `obter_aprovados`, faixas com
+    👎. O SIREN não faz nada de especial com essa lista hoje (o ECHO já
+    evita sugerir de novo sozinho, via dedup de 90 dias) - só exposto aqui
+    por simetria com `obter_aprovados`, caso alguma tela queira mostrar."""
+    dados = _get(f"/perfil/desaprovados?discord_user_id={DONO_DISCORD_ID}")
+    return (dados or {}).get("desaprovadas", [])
