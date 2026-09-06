@@ -87,3 +87,20 @@ def obter_voto(artista, titulo):
     query = f"discord_user_id={DONO_DISCORD_ID}&titulo={urllib.parse.quote(titulo)}&artista={urllib.parse.quote(artista)}"
     dados = _get(f"/perfil/voto?{query}")
     return (dados or {}).get("voto")
+
+
+def obter_em_alta():
+    """`/em_alta` (seção 3.3 do ECHO_SPEC) - músicas atualmente relevantes,
+    sem filtrar por compatibilidade pessoal. Devolve sempre uma lista
+    (vazia se o ECHO estiver fora do ar ou sem provedor configurado)."""
+    dados = _get(f"/em_alta?discord_user_id={DONO_DISCORD_ID}")
+    return (dados or {}).get("em_alta", [])
+
+
+def obter_redescobertas(quantidade=3):
+    """`/redescobertas` (seção 9 do ECHO_SPEC) - faixas aprovadas sem
+    aparecer há muito tempo. Devolve sempre uma lista (vazia se o ECHO
+    estiver fora do ar - esta rota nunca depende do provedor musical, só de
+    dado local do ECHO, mas ainda depende do ECHO estar respondendo)."""
+    dados = _get(f"/redescobertas?discord_user_id={DONO_DISCORD_ID}&quantidade={quantidade}")
+    return (dados or {}).get("redescobertas", [])
