@@ -1,0 +1,25 @@
+[project]
+name = "siren"
+version = "0.1.0"
+description = "Player de música pessoal (SIREN) - reprodução local via MPV/yt-dlp, com integração opcional ao Project ECHO."
+requires-python = ">=3.11"
+dependencies = [
+    "PySide6>=6.7",
+    "python-mpv>=1.0",
+    "yt-dlp>=2024.8.6",
+    "requests>=2.31",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["siren*"]
+
+[project.scripts]
+siren = "siren.main:main"
