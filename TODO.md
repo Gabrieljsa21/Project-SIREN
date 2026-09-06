@@ -2,13 +2,6 @@
 
 ## Prioridade alta
 
-- **Download offline sem UI nenhuma** - `core/downloads.py` funciona
-  (manifesto testado, prioridade sobre resolver pela rede já integrada em
-  `orquestrador.py`), mas nenhum botão em nenhuma tela chama
-  `downloads.baixar()`. Falta: botão "baixar" em Playlists/Favoritos/
-  Histórico, rodando em thread própria (download é bloqueante e faz chamada
-  de rede - não pode travar a janela). Complexidade: baixa (função já existe,
-  só falta UI + threading). Status: não iniciado.
 - **Tradução via LLM nunca foi testada contra o Groq de verdade** - só os
   testes automatizados (mocks). O caminho "gratis" (MyMemory) foi validado
   ao vivo; o caminho "llm" precisa de `GROQ_API_KEY` configurada pra
@@ -25,16 +18,6 @@
 - **Busca própria** (view "search" hoje é só placeholder) - `yt_dlp` direto
   (`ytsearch5:`), sem precisar do ECHO (v1.3 do roadmap). Complexidade:
   baixa. Status: não iniciado.
-- **"Adicionar à fila"/"tocar a seguir" nas views** - hoje clicar numa
-  faixa (Playlists/Favoritos/Histórico/Descoberta) toca IMEDIATO, nunca
-  enfileira. Falta um menu de contexto ou botão "+" chamando
-  `core/fila.Fila.adicionar`/`adicionar_a_seguir`. Complexidade: baixa.
-  Status: não iniciado.
-- **Playlist "Descobertas do SIREN" automática** - `playlists.
-  adicionar_a_descobertas` já existe, mas nenhuma view chama isso quando
-  uma faixa de origem "descoberta"/"caos" recebe ❤️ (só a view Descoberta
-  sabe a origem no momento do voto). Complexidade: baixa. Status: não
-  iniciado.
 - **Seek na barra de player** - clicar na barra de progresso pra pular
   pra um ponto da faixa (v1.1 do roadmap). Complexidade: baixa. Status:
   não iniciado.
