@@ -218,11 +218,27 @@ no momento que é cantada". `integrations/lyrics.py` consulta o LRCLIB
 a escolher Last.fm), devolve linhas já parseadas do LRC
 (`tempo_segundos`/`texto`). Validado contra a API real.
 
-**TRADUÇÃO fica de fora por decisão explícita, não esquecimento** - LRCLIB
-não traduz, e as opções disponíveis (API paga, ou um LLM) quebrariam "SIREN
-funciona sozinho" (dependeriam de chave/custo/login). Pendência real, não
-implementar sem antes decidir COM o usuário qual serviço usar.
+**TRADUÇÃO resolvida (2026-09-06)** - SEMPRE sob demanda (botão "Traduzir"
+na aba Letras), nunca automática ("na maioria das vezes não vou querer
+saber da letra"). `integrations/traducao.py`, 2 provedores por
+`config.py::traducao_provedor`: `"gratis"` (MyMemory, sem chave) ou `"llm"`
+(Groq `openai/gpt-oss-120b`, mesma chave `GROQ_API_KEY_LLM` que a GAIA usa -
+copiada pro `.env` do SIREN, nunca comitada). `"nenhum"` (padrão de fábrica
+pra quem clonar do zero) desliga o botão de vez. Ambos validados contra a
+API real.
 
-**Pendente:** nenhuma tela ainda mostra letra nenhuma (backend pronto e
-testado contra a API real, sem UI que chame `lyrics.buscar_letra` nem
-sincronize com `player.posicao_segundos` - ver TODO.md).
+## 16. Importar playlist (YouTube e Spotify)
+
+Pedido do usuário (2026-09-06): "eu tbm quero poder importar playlist do
+spotfy e youtube".
+
+- **YouTube** - `integrations/importador_youtube.py` lista os vídeos de uma
+  playlist pública via `yt-dlp` (`extract_flat`, sem baixar nada), sem
+  credencial nenhuma. Validado contra uma playlist pública real (35 faixas).
+- **Spotify** - **não dá pra importar direto via API sem exigir assinatura
+  Premium ATIVA do usuário** (mesmo achado documentado em
+  `Project-ECHO/ARQUITETURA.md`, seção "Por que Last.fm não Spotify" - o app
+  de desenvolvedor para de funcionar se o Premium expirar). Resolvido com
+  `core/importador_texto.py`: cola o texto da playlist (copiado do app do
+  Spotify, ou de qualquer lugar), parseia "Artista - Título" por linha - sem
+  credencial nenhuma, funciona pra qualquer fonte, não só Spotify.
