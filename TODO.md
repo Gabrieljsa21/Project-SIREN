@@ -2,12 +2,6 @@
 
 ## Prioridade alta
 
-- **Letras sincronizadas sem UI nenhuma** - `integrations/lyrics.py` funciona
-  e foi validado contra a API real do LRCLIB, mas nenhuma tela mostra letra
-  nenhuma. Falta: painel na view "Tocando agora" (ou aba própria) chamando
-  `lyrics.buscar_letra` quando a faixa muda, e um timer lendo
-  `player.posicao_segundos` pra destacar a linha atual. Complexidade: média.
-  Status: não iniciado.
 - **Download offline sem UI nenhuma** - `core/downloads.py` funciona
   (manifesto testado, prioridade sobre resolver pela rede já integrada em
   `orquestrador.py`), mas nenhum botão em nenhuma tela chama
@@ -15,10 +9,11 @@
   Histórico, rodando em thread própria (download é bloqueante e faz chamada
   de rede - não pode travar a janela). Complexidade: baixa (função já existe,
   só falta UI + threading). Status: não iniciado.
-- **Decisão de produto: tradução de letras** - LRCLIB não traduz. Toda opção
-  disponível (API paga, ou um LLM) quebra "SIREN funciona sozinho" (chave/
-  custo/login). Precisa decidir COM o usuário qual serviço usar antes de
-  implementar - ver PLANO_SIREN.md, seção 15.
+- **Tradução via LLM nunca foi testada contra o Groq de verdade** - só os
+  testes automatizados (mocks). O caminho "gratis" (MyMemory) foi validado
+  ao vivo; o caminho "llm" precisa de `GROQ_API_KEY` configurada pra
+  confirmar que o parsing de "N: texto" funciona com a resposta REAL do
+  modelo, não só com a resposta fake dos testes. Status: não confirmado.
 
 ## Prioridade média
 
@@ -43,6 +38,10 @@
 - **Seek na barra de player** - clicar na barra de progresso pra pular
   pra um ponto da faixa (v1.1 do roadmap). Complexidade: baixa. Status:
   não iniciado.
+- **Botão "Traduzir" trava a janela enquanto espera a API** - decisão
+  consciente por enquanto (tradução é rara, sob demanda); mover pra uma
+  thread própria (`QThread`/`QRunnable`) se isso incomodar na prática.
+  Complexidade: baixa. Status: não iniciado.
 
 ## Prioridade baixa
 
