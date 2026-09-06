@@ -33,6 +33,15 @@ class MainWindow(QMainWindow):
         self._botao_proximo = QPushButton("⏭")
         self._botao_like = QPushButton("❤️")
 
+        # 👍/👎 são mutuamente exclusivos e refletem o voto atual (seção 4 do
+        # PLANO_SIREN.md - sinal de treino do ECHO, não favorito local do
+        # SIREN). NUNCA usar QButtonGroup(exclusive=True) aqui - ele recusa
+        # desmarcar programaticamente o único botão marcado (gotcha real já
+        # documentado no ecossistema, ver memória do LOKI/Gesture Wheel);
+        # o estado "marcado" dos dois é gerido inteiramente à mão.
+        self._botao_like.setCheckable(True)
+        self._botao_dislike.setCheckable(True)
+
         self._botao_caos.clicked.connect(self._iniciar_caos)
         self._botao_dislike.clicked.connect(self._dislike)
         self._botao_anterior.clicked.connect(self._tocar_anterior)
@@ -99,19 +108,34 @@ class MainWindow(QMainWindow):
         self._label_faixa.setText(f"{faixa['titulo']} - {faixa['artista']}")
         self._botao_play_pause.setText("⏸")
         self._definir_controles_habilitados(True)
+        # Reflete um voto anterior dessa faixa (ex.: já avaliada numa sessão
+        # passada) - se o ECHO estiver fora do ar, `obter_voto` devolve None
+        # e os dois botões ficam desmarcados, sem travar nada.
+        self._atualizar_botoes_voto(echo_client.obter_voto(faixa["artista"], faixa["titulo"]))
 
     def _alternar_play_pause(self):
         self._player.alternar_pausa()
         self._botao_play_pause.setText("▶" if self._player.pausado else "⏸")
 
+    def _atualizar_botoes_voto(self, voto):
+        """`voto`: "positivo"/"negativo"/None - marca só o botão correspondente,
+        desmarcando SEMPRE o outro (exclusividade manual, ver comentário no
+        `__init__` sobre por que não é um `QButtonGroup`)."""
+        self._botao_like.setChecked(voto == "positivo")
+        self._botao_dislike.setChecked(voto == "negativo")
+
     def _like(self):
-        if self._faixa_atual:
-            echo_client.enviar_feedback(self._faixa_atual["artista"], self._faixa_atual["titulo"], "positivo")
+        if not self._faixa_atual:
+            return
+        echo_client.enviar_feedback(self._faixa_atual["artista"], self._faixa_atual["titulo"], "positivo")
+        self._atualizar_botoes_voto("positivo")
 
     def _dislike(self):
-        if self._faixa_atual:
-            echo_client.enviar_feedback(self._faixa_atual["artista"], self._faixa_atual["titulo"], "negativo")
-            self._tocar_proxima()
+        if not self._faixa_atual:
+            return
+        echo_client.enviar_feedback(self._faixa_atual["artista"], self._faixa_atual["titulo"], "negativo")
+        self._atualizar_botoes_voto("negativo")
+        self._tocar_proxima()
 
     def closeEvent(self, event):
         self._player.encerrar()
