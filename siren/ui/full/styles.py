@@ -16,6 +16,17 @@ COR_PAINEL_2 = "rgba(38, 54, 94, 170)"
 COR_LIKE = "#ea6b86"
 COR_DISLIKE = "#7784ab"
 
+# 🔥 `#barraTitulo` NUNCA pode usar `background: transparent` (alpha 0 de
+# verdade) - achado real (2026-09-06, usuário: "é como se o clique passasse
+# por ele e clicasse no que está atrás"): numa janela translúcida por pixel
+# (`WA_TranslucentBackground` + Acrylic, ver chrome.py), o Windows trata
+# pixel com alpha ZERO como clique-através de propósito (mesmo bug já
+# documentado no Project-ARGUS, `argus/core/widget.py`) - o clique nem
+# chegava a virar `mousePressEvent` (confirmado com log de diagnóstico), ia
+# direto pra janela por trás do SIREN, que então vinha pra frente e cobria
+# ele (parecia "minimizar" sem ser isso de verdade). `rgba(0, 0, 0, 1)` é
+# 1/255 (imperceptível, mas != 0) - suficiente pro Windows contar como
+# "sólido o bastante" ali.
 QSS = f"""
 QWidget {{
     color: {COR_TEXTO};
@@ -23,7 +34,7 @@ QWidget {{
     font-size: 13px;
     background: transparent;
 }}
-#barraTitulo {{ background: transparent; }}
+#barraTitulo {{ background: rgba(0, 0, 0, 1); }}
 #barraTituloTexto {{ font-weight: 600; color: {COR_TEXTO_FRACO}; }}
 #barraTituloBotao, #barraTituloBotaoFechar {{
     background: transparent; border: none; border-radius: 6px;

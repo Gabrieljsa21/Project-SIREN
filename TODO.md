@@ -37,7 +37,7 @@
   sozinha. Status: aguardando confirmação do usuário.
 - **Duplo clique pra maximizar pode ter ficado instável com
   `startSystemMove()`** (2026-09-06) - trocar o arrasto manual pelo
-  arrasto nativo (corrigindo "as janelas minimizavam ao arrastar") pode
-  interferir na detecção de duplo clique do Qt, já que o SO agora entra
-  num loop de mover a cada 1º clique da barra de título. Não confirmado
-  se ainda funciona. Status: aguardando confirmação do usuário.
+  arrasto nativo pode interferir na detecção de duplo clique do Qt, já
+  que o SO agora entra num loop de mover a cada 1º clique da barra de
+  título. Não confirmado se ainda funciona. Status: aguardando
+  confirmação do usuário.
