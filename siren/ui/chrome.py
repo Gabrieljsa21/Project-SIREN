@@ -40,6 +40,13 @@ class BarraTitulo(QWidget):
         self._janela = janela
         self.setFixedHeight(38)
         self.setObjectName("barraTitulo")
+        # 🔥 QWidget puro NÃO pinta "background" do QSS sozinho (diferente
+        # de QFrame/QPushButton/etc, que já são "style aware") - sem isso,
+        # o `rgba(0, 0, 0, 1)` de styles.py nunca chegava a virar pixel de
+        # verdade, o alpha real continuava 0 e o clique-através (ver
+        # comentário em styles.py) persistia mesmo depois do fix de CSS
+        # (achado do usuário: "continua com erro").
+        self.setAttribute(Qt.WA_StyledBackground, True)
 
         rotulo = QLabel(titulo)
         rotulo.setObjectName("barraTituloTexto")
