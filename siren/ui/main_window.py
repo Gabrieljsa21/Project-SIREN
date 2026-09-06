@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 )
 
 from siren.integrations import echo_client
-from siren.playback import resolver
+from siren.playback import orquestrador
 from siren.playback.player import Player
 
 
@@ -97,11 +97,10 @@ class MainWindow(QMainWindow):
         self._tocar_faixa(faixa_anterior)
 
     def _tocar_faixa(self, faixa):
-        resolved = resolver.resolver_stream(faixa["titulo"], faixa["artista"])
-        if resolved is None:
+        sucesso = orquestrador.tocar_faixa(self._player, faixa["titulo"], faixa["artista"], origem="caos")
+        if not sucesso:
             self._label_faixa.setText(f"Não consegui resolver \"{faixa['artista']} - {faixa['titulo']}\"")
             return
-        self._player.tocar(resolved)
         self._faixa_atual = faixa
         self._historico_sessao.append(faixa)
         self._excluidos_sessao.append(self._id_faixa(faixa))
