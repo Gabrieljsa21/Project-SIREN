@@ -72,6 +72,14 @@ os dois existirem na mesma tela - nunca um botão só que faz as duas coisas.
 > infraestrutura de reprodução com o Project ERIS. Pequena duplicação do
 > Playback Resolver é aceitável para preservar a independência dos projetos.**
 
+> **Project SIREN nunca deve falar com um provedor de LLM diretamente
+> (Groq, OpenAI, etc.) - isso é responsabilidade da GAIA.** Qualquer
+> feature que precise de raciocínio/geração de texto por IA de verdade pede
+> pra GAIA via webhook reverso (porta 8766, mesmo padrão de
+> `/siren/traduzir_letra` - ver seção 15), como uma integração OPCIONAL,
+> nunca mantendo client/chave própria. Não vale pra serviço que NÃO é LLM
+> (MyMemory, LRCLIB, yt-dlp continuam diretos).
+
 Essas regras existem especificamente para impedir que a implementação (minha
 ou de qualquer agente) "aproveite e já melhore a arquitetura" no meio do
 caminho - migrando o ERIS, criando uma lib Python compartilhada entre
@@ -221,11 +229,32 @@ a escolher Last.fm), devolve linhas já parseadas do LRC
 **TRADUÇÃO resolvida (2026-09-06)** - SEMPRE sob demanda (botão "Traduzir"
 na aba Letras), nunca automática ("na maioria das vezes não vou querer
 saber da letra"). `integrations/traducao.py`, 2 provedores por
-`config.py::traducao_provedor`: `"gratis"` (MyMemory, sem chave) ou `"llm"`
-(Groq `openai/gpt-oss-120b`, mesma chave `GROQ_API_KEY_LLM` que a GAIA usa -
-copiada pro `.env` do SIREN, nunca comitada). `"nenhum"` (padrão de fábrica
-pra quem clonar do zero) desliga o botão de vez. Ambos validados contra a
-API real.
+`config.py::traducao_provedor`: `"gratis"` (MyMemory, sem chave) ou `"llm"`.
+`"nenhum"` (padrão de fábrica pra quem clonar do zero) desliga o botão de
+vez.
+
+**🔥 Correção arquitetural no mesmo dia** - a primeira versão do `"llm"`
+mantinha um cliente Groq CRU dentro do SIREN (chave própria, sem rotação
+de conta nem cooldown). Pergunta do usuário: "como está usando IA, isso já
+não foge da responsabilidade da SIREN e entra na GAIA?" - correta: isso
+duplicava uma responsabilidade que já é da GAIA (`core/agent/llm_fallback.py`
+de lá tem rotação multi-conta/cooldown/múltiplos modelos há muito tempo,
+inclusive o MESMO padrão já resolvido antes pro Colecionador do ERIS -
+"o ideal não é você fazer isso, é a gaia", 2026-08-29). Trocado por um
+webhook reverso `POST /siren/traduzir_letra` (porta 8766, mesmo padrão que
+ERIS/MOIRAI/HESTIA já usam) - a GAIA vira uma integração OPCIONAL pro
+"llm" (igual o ECHO): sem ela no ar, `traducao_disponivel()` esconde o
+botão, o resto do SIREN nem percebe. Ver `assistant/core/agent/turno.py::
+traduzir_linhas_letra` e `assistant/integrations/iris_bridge.py`.
+
+> **Nova regra, generalizando essa correção: Project SIREN nunca deve
+> falar com um provedor de LLM (Groq, OpenAI, etc.) diretamente.** Qualquer
+> feature que precise de "raciocínio"/geração de texto por IA de verdade
+> pede pra GAIA (webhook reverso, mesmo padrão de `/siren/traduzir_letra`)
+> - nunca mantém client/chave própria pra isso. Serviço que NÃO é LLM (ex.:
+> MyMemory, LRCLIB, yt-dlp) continua podendo ser chamado direto - a regra é
+> sobre "IA" no sentido de raciocínio/geração, não sobre toda integração
+> externa.
 
 ## 16. Importar playlist (YouTube e Spotify)
 

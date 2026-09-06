@@ -7,14 +7,21 @@ provedores, escolhidos por `core/config.py::traducao_provedor`:
 - `"gratis"` - MyMemory (api.mymemory.translated.net), sem chave, cota
   diária pequena (~5000 palavras/dia sem e-mail cadastrado), qualidade
   inferior a um LLM. Validado contra a API real.
-- `"llm"` - Groq (mesma API que a GAIA já usa), melhor qualidade, custa
-  dinheiro por chamada, precisa de `GROQ_API_KEY` no ambiente.
+- `"llm"` - pede pra GAIA (não fala com o Groq direto!). Achado do usuário
+  (2026-09-06): "como está usando IA, isso já não foge da responsabilidade
+  da SIREN e entra na GAIA?" - correto: um cliente Groq cru dentro do
+  SIREN duplicaria a rotação de conta/cooldown que a GAIA já tem pronta
+  (`core/agent/llm_fallback.py` de lá). Webhook reverso
+  `POST /siren/traduzir_letra` na porta 8766 (mesma porta de
+  `assistant/integrations/iris_bridge.py`, mesmo padrão que ERIS/MOIRAI/
+  HESTIA já usam pra pedir algo à GAIA).
 - `"nenhum"` (padrão) - desliga o botão de tradução de vez, sem chamada
   nenhuma a nenhum serviço externo.
 
-Nenhum dos dois provedores é obrigatório - com `"nenhum"` (ou sem
-`GROQ_API_KEY` configurada, no caso do LLM), `traducao_disponivel()` avisa
-a UI a esconder o botão, mantendo "SIREN funciona sozinho"."""
+Nenhum dos dois provedores é obrigatório - com `"nenhum"` (ou com a GAIA
+fora do ar, no caso do "llm"), `traducao_disponivel()` avisa a UI a
+esconder o botão, mantendo "SIREN funciona sozinho" (a GAIA é só mais uma
+integração opcional, no mesmo espírito do ECHO)."""
 import os
 import requests
 
@@ -22,15 +29,25 @@ from siren.core import config as config_mod
 
 TIMEOUT = 15
 _URL_MYMEMORY = "https://api.mymemory.translated.net/get"
-_URL_GROQ = "https://api.groq.com/openai/v1/chat/completions"
-_MODELO_GROQ = "openai/gpt-oss-120b"  # llama-3.3-70b-versatile foi descomissionado (ver GAIA, 2026-08-15)
+_URL_GAIA_BASE = os.environ.get("GAIA_URL", "http://127.0.0.1:8766")
 
 
 def traducao_disponivel():
     provedor = config_mod.obter("traducao_provedor")
     if provedor == "llm":
-        return bool(os.getenv("GROQ_API_KEY"))
+        return _gaia_disponivel()
     return provedor == "gratis"
+
+
+def _gaia_disponivel():
+    """Ping leve (`GET /funcoes`, já existe na GAIA pra outro propósito -
+    lista de tags ensinadas à LLM) - só confirma que o servidor da GAIA
+    está de pé, não faz nenhuma tradução de teste."""
+    try:
+        resp = requests.get(f"{_URL_GAIA_BASE}/funcoes", timeout=3)
+        return resp.status_code == 200
+    except Exception:
+        return False
 
 
 def traduzir_linhas(linhas):
@@ -42,7 +59,7 @@ def traduzir_linhas(linhas):
     provedor = config_mod.obter("traducao_provedor")
     idioma_alvo = config_mod.obter("traducao_idioma_alvo")
     if provedor == "llm":
-        return _traduzir_via_llm(linhas, idioma_alvo)
+        return _traduzir_via_gaia(linhas, idioma_alvo)
     if provedor == "gratis":
         return _traduzir_via_mymemory(linhas, idioma_alvo)
     return None
@@ -62,41 +79,18 @@ def _traduzir_via_mymemory(linhas, idioma_alvo):
     return resultado
 
 
-def _traduzir_via_llm(linhas, idioma_alvo):
-    """1 chamada só pra letra inteira (não 1 por linha, como o MyMemory) -
-    um LLM entende contexto entre linhas, e evita pagar N chamadas por
-    faixa. Numeração "N: texto" mantém o pareamento linha a linha mesmo se
-    o modelo reordenar/juntar frases um pouco."""
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        return None
-
-    texto_numerado = "\n".join(f"{i}: {linha['texto']}" for i, linha in enumerate(linhas))
-    prompt = (
-        f"Traduza cada linha numerada abaixo para {idioma_alvo}, mantendo a mesma "
-        f"numeração 'N: texto' e a mesma quantidade de linhas. Responda só com as "
-        f"linhas traduzidas, sem nenhum comentário a mais.\n\n{texto_numerado}"
-    )
+def _traduzir_via_gaia(linhas, idioma_alvo):
+    """A GAIA faz 1 chamada só pra letra inteira (não 1 por linha, como o
+    MyMemory) - ver `assistant/core/agent/turno.py::traduzir_linhas_letra`
+    pro porquê e pro parsing de "N: texto". Aqui só a chamada HTTP; timeout
+    generoso (o LLM pode precisar tentar mais de uma conta/modelo antes de
+    responder, ver rotação de conta da GAIA)."""
     try:
         resp = requests.post(
-            _URL_GROQ,
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={"model": _MODELO_GROQ, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2},
-            timeout=TIMEOUT,
+            f"{_URL_GAIA_BASE}/siren/traduzir_letra",
+            json={"linhas": linhas, "idioma_alvo": idioma_alvo},
+            timeout=45,
         )
-        conteudo = resp.json()["choices"][0]["message"]["content"]
+        return resp.json().get("linhas")
     except Exception:
         return None
-
-    traducoes_por_indice = {}
-    for linha_bruta in conteudo.splitlines():
-        if ":" not in linha_bruta:
-            continue
-        indice_str, texto = linha_bruta.split(":", 1)
-        try:
-            indice = int(indice_str.strip())
-        except ValueError:
-            continue
-        traducoes_por_indice[indice] = texto.strip()
-
-    return [{**linha, "traducao": traducoes_por_indice.get(i)} for i, linha in enumerate(linhas)]
