@@ -125,7 +125,7 @@ class FullWindow(QWidget):
 
     def _construir_views(self):
         return {
-            "now": ViewTocandoAgora(ao_iniciar_caos=self._pedir_caos),
+            "now": ViewTocandoAgora(ao_iniciar_caos=self._pedir_caos, player=self._player),
             "discover": ViewDescoberta(ao_tocar=self._tocar_faixa),
             "library": ViewEmConstrucao("Biblioteca"),
             "playlists": ViewPlaylists(ao_tocar=self._tocar_faixa),
@@ -269,8 +269,8 @@ class FullWindow(QWidget):
         self._tocar_faixa(anterior["titulo"], anterior["artista"], origem=anterior.get("origem", "fila"))
 
     def _tocar_faixa(self, titulo, artista, origem="fila"):
-        sucesso = orquestrador.tocar_faixa(self._player, titulo, artista, origem=origem)
-        if not sucesso:
+        resolvido = orquestrador.tocar_faixa(self._player, titulo, artista, origem=origem)
+        if resolvido is None:
             self._label_faixa_atual.setText(f"Não consegui resolver \"{artista} - {titulo}\"")
             return
         self._faixa_atual = {"titulo": titulo, "artista": artista, "origem": origem}
@@ -279,7 +279,7 @@ class FullWindow(QWidget):
 
         self._label_faixa_atual.setText(titulo)
         self._label_artista_atual.setText(artista)
-        self._views["now"].definir_faixa_atual(titulo, artista)
+        self._views["now"].definir_faixa_atual(titulo, artista, resolvido.duration)
         self._botao_play_pause.setText("⏸")
         self._definir_controles_habilitados(True)
         self._botao_favorito.setChecked(favoritos_mod.esta_favoritada(titulo, artista))

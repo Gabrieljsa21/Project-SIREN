@@ -15,9 +15,11 @@ from siren.playback.resolver import ResolvedStream
 
 
 def tocar_faixa(player, titulo, artista, origem="fila"):
-    """Devolve `True` se conseguiu tocar (local ou resolvida pela rede),
-    `False` se não achou em lugar nenhum - quem chama decide como comunicar
-    a falha na UI (nunca inventa uma faixa)."""
+    """Devolve o `ResolvedStream` tocado (local ou resolvido pela rede), ou
+    `None` se não achou em lugar nenhum - quem chama decide como comunicar
+    a falha na UI (nunca inventa uma faixa). Um `ResolvedStream` devolvido é
+    sempre "verdadeiro" em teste booleano (`if not resolvido`), então quem só
+    precisa saber sucesso/falha pode tratar como antes."""
     caminho_local = downloads_mod.obter_caminho_local(titulo, artista)
     if caminho_local:
         resolved = ResolvedStream(
@@ -27,8 +29,8 @@ def tocar_faixa(player, titulo, artista, origem="fila"):
     else:
         resolved = resolver_mod.resolver_stream(titulo, artista)
         if resolved is None:
-            return False
+            return None
 
     player.tocar(resolved)
     historico_mod.registrar(titulo, artista, origem=origem)
-    return True
+    return resolved

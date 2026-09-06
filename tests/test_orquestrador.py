@@ -14,9 +14,11 @@ class _PlayerFalso:
 def test_toca_local_quando_ja_baixada(monkeypatch):
     monkeypatch.setattr(orquestrador.downloads_mod, "obter_caminho_local", lambda t, a: "/caminho/local.webm")
     player = _PlayerFalso()
-    assert orquestrador.tocar_faixa(player, "Doomsday", "MF DOOM") is True
-    assert player.tocou.url == "/caminho/local.webm"
-    assert player.tocou.source == "local"
+    resolvido = orquestrador.tocar_faixa(player, "Doomsday", "MF DOOM")
+    assert resolvido is not None
+    assert resolvido.url == "/caminho/local.webm"
+    assert resolvido.source == "local"
+    assert player.tocou is resolvido
 
 
 def test_resolve_pela_rede_quando_nao_baixada(monkeypatch):
@@ -27,15 +29,15 @@ def test_resolve_pela_rede_quando_nao_baixada(monkeypatch):
     )
     monkeypatch.setattr(orquestrador.resolver_mod, "resolver_stream", lambda t, a: resolved_falso)
     player = _PlayerFalso()
-    assert orquestrador.tocar_faixa(player, "Doomsday", "MF DOOM") is True
+    assert orquestrador.tocar_faixa(player, "Doomsday", "MF DOOM") is resolved_falso
     assert player.tocou is resolved_falso
 
 
-def test_devolve_false_quando_nao_acha_em_lugar_nenhum(monkeypatch):
+def test_devolve_none_quando_nao_acha_em_lugar_nenhum(monkeypatch):
     monkeypatch.setattr(orquestrador.downloads_mod, "obter_caminho_local", lambda t, a: None)
     monkeypatch.setattr(orquestrador.resolver_mod, "resolver_stream", lambda t, a: None)
     player = _PlayerFalso()
-    assert orquestrador.tocar_faixa(player, "Doomsday", "MF DOOM") is False
+    assert orquestrador.tocar_faixa(player, "Doomsday", "MF DOOM") is None
 
 
 def test_registra_no_historico_local_quando_toca(monkeypatch):

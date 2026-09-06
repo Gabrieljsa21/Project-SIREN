@@ -22,6 +22,12 @@ PADRAO = {
     "volume_inicial": 70,
     "youtube_cookies_file": "",
     "lyrics_ativado": True,
+    # "nenhum" (botão "Traduzir" some), "gratis" (MyMemory, sem chave) ou
+    # "llm" (Groq, precisa de GROQ_API_KEY no ambiente) - pedido do usuário
+    # (2026-09-06): "deixa isso meio que habilitável, só trazer a tradução
+    # quando solicitado" - NUNCA traduz sozinho, só quando o usuário clica.
+    "traducao_provedor": "nenhum",
+    "traducao_idioma_alvo": "pt-BR",
 }
 
 
