@@ -21,6 +21,7 @@ from siren.integrations import echo_client
 from siren.playback import orquestrador
 from siren.playback.player import Player
 from siren.ui import chrome
+from siren.ui import mode_switch
 from siren.ui.full import styles
 from siren.ui.full.views.descoberta import ViewDescoberta
 from siren.ui.full.views.em_construcao import ViewEmConstrucao
@@ -136,7 +137,16 @@ class FullWindow(QWidget):
             layout.addWidget(botao)
             botoes[chave] = botao
         layout.addStretch()
+
+        botao_modo_leve = QPushButton("← Modo Leve")
+        botao_modo_leve.setObjectName("botaoSecundario")
+        botao_modo_leve.clicked.connect(self._trocar_pro_leve)
+        layout.addWidget(botao_modo_leve)
+
         return sidebar, botoes
+
+    def _trocar_pro_leve(self):
+        mode_switch.trocar_modo(QApplication.instance(), self, "lite")
 
     def _construir_views(self):
         return {
