@@ -26,7 +26,11 @@ COR_DISLIKE = "#7784ab"
 # direto pra janela por trás do SIREN, que então vinha pra frente e cobria
 # ele (parecia "minimizar" sem ser isso de verdade). `rgba(0, 0, 0, 1)` é
 # 1/255 (imperceptível, mas != 0) - suficiente pro Windows contar como
-# "sólido o bastante" ali.
+# "sólido o bastante" ali. **Só essa mudança de CSS não bastou** ("continua
+# com erro") - `BarraTitulo` é um `QWidget` puro, que não pinta
+# "background" do QSS sozinho sem `Qt.WA_StyledBackground` (ver
+# `chrome.py::BarraTitulo.__init__`) - sem essa flag o valor daqui nunca
+# virava pixel de verdade.
 QSS = f"""
 QWidget {{
     color: {COR_TEXTO};
