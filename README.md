@@ -15,10 +15,25 @@ de dados, guardrails, critérios da v1 e roadmap).
 ## Requisitos
 
 - Python 3.11+
-- [`mpv`](https://mpv.io/) instalado no sistema (`libmpv-2.dll` precisa estar
-  no PATH pro `python-mpv` conseguir carregar) - via `winget install mpv-player.mpv`
-  ou `scoop install mpv`, por exemplo.
-- `ffmpeg` no PATH (usado pelo `yt-dlp` pra extrair áudio).
+- `ffmpeg` no PATH (usado pelo `yt-dlp` pra extrair áudio) - `winget install
+  Gyan.FFmpeg`.
+- **`libmpv-2.dll`** - o `python-mpv` (biblioteca usada por `playback/player.py`)
+  precisa dessa DLL especificamente (não é o mesmo que instalar o player `mpv`
+  sozinho). `winget install shinchiro.mpv` instala só o executável do player,
+  **sem** essa DLL - não resolve. Passo que funciona de verdade (testado
+  2026-09-06):
+  1. Baixar o build "dev" mais recente pra `x86_64` em
+     https://github.com/shinchiro/mpv-winbuild-cmake/releases (arquivo
+     `mpv-dev-x86_64-<data>-git-<hash>.7z`) - o mirror de download do
+     SourceForge (`sourceforge.net/projects/mpv-player-windows`) bloqueia
+     downloads via script (403 do Cloudflare), o release do GitHub não.
+  2. Extrair com 7-Zip (`winget install 7zip.7zip` se não tiver) - o `.7z` traz
+     `libmpv-2.dll` solto.
+  3. Copiar `libmpv-2.dll` pra dentro de `.venv/Lib/site-packages/` (mesma
+     pasta de `mpv.py`) - o `python-mpv` procura a DLL primeiro no `PATH`, e
+     cai de volta pra essa pasta se não achar lá (ver `mpv.py`, topo do
+     arquivo). Evita mexer no `PATH` do sistema; a DLL fica isolada dentro do
+     venv do projeto.
 
 ## Rodando
 
