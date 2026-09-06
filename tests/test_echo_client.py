@@ -58,3 +58,18 @@ def test_obter_redescobertas_lista_vazia_quando_echo_fora_do_ar(monkeypatch):
 def test_obter_redescobertas_devolve_lista(monkeypatch):
     monkeypatch.setattr(echo_client, "_get", lambda *a, **k: {"redescobertas": [{"artista": "MF DOOM", "titulo": "Doomsday", "dias_sem_aparecer": 200}]})
     assert echo_client.obter_redescobertas(quantidade=1) == [{"artista": "MF DOOM", "titulo": "Doomsday", "dias_sem_aparecer": 200}]
+
+
+def test_obter_aprovados_lista_vazia_quando_echo_fora_do_ar(monkeypatch):
+    monkeypatch.setattr(echo_client, "_get", lambda *a, **k: None)
+    assert echo_client.obter_aprovados() == []
+
+
+def test_obter_aprovados_devolve_lista(monkeypatch):
+    monkeypatch.setattr(echo_client, "_get", lambda *a, **k: {"aprovadas": [{"titulo": "Doomsday", "artista": "MF DOOM"}]})
+    assert echo_client.obter_aprovados() == [{"titulo": "Doomsday", "artista": "MF DOOM"}]
+
+
+def test_obter_desaprovados_devolve_lista(monkeypatch):
+    monkeypatch.setattr(echo_client, "_get", lambda *a, **k: {"desaprovadas": [{"titulo": "Song Ruim", "artista": "Artista Y"}]})
+    assert echo_client.obter_desaprovados() == [{"titulo": "Song Ruim", "artista": "Artista Y"}]
