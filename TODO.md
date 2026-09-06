@@ -30,10 +30,14 @@
   segunda `ImportYoutubeWorker` sobreposta (o botão não fica desabilitado
   durante a espera, diferente do botão de baixar). Complexidade: baixa.
   Status: não iniciado.
-- **Testar de verdade com display real** - tudo aqui foi validado só
-  offscreen (`QT_QPA_PLATFORM=offscreen`) e por instanciação direta; o
-  Modo Completo (vidro fosco de verdade, Acrylic) nunca foi CONFIRMADO
-  visualmente por ninguém ainda. Abri as duas janelas (Leve e Completo)
-  rodando de verdade nesta máquina em 2026-09-06 - conferir se o Acrylic
-  aplicou mesmo (Windows 10/11 recente) e se a barra de título própria
-  (arrastar/minimizar/fechar/duplo clique) funciona como esperado.
+- **Confirmar auto-avanço do Caos com faixa real até o fim** (2026-09-06) -
+  `Player.observar_fim_de_faixa` foi verificado só até o registro da API
+  (sem erro, contra o código-fonte real do python-mpv) - nunca vi uma
+  faixa tocar até o fim de verdade e confirmar que a próxima começa
+  sozinha. Status: aguardando confirmação do usuário.
+- **Duplo clique pra maximizar pode ter ficado instável com
+  `startSystemMove()`** (2026-09-06) - trocar o arrasto manual pelo
+  arrasto nativo (corrigindo "as janelas minimizavam ao arrastar") pode
+  interferir na detecção de duplo clique do Qt, já que o SO agora entra
+  num loop de mover a cada 1º clique da barra de título. Não confirmado
+  se ainda funciona. Status: aguardando confirmação do usuário.
