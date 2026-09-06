@@ -36,7 +36,7 @@ QWidget {{
     color: {COR_TEXTO};
     font-family: "Segoe UI";
     font-size: 13px;
-    background: transparent;
+    background: rgba(0, 0, 0, 1);
 }}
 #barraTitulo {{ background: rgba(0, 0, 0, 1); }}
 #barraTituloTexto {{ font-weight: 600; color: {COR_TEXTO_FRACO}; }}

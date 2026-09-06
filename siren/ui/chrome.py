@@ -22,6 +22,19 @@ def configurar_janela_vidro_fosco(widget, cor_hex, alpha=130, acrylic_ativado=Tr
     antigo, sem suporte nenhum a isso)."""
     widget.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
     widget.setAttribute(Qt.WA_TranslucentBackground)
+    # 🔥 Sem isso, a própria janela de topo (QWidget puro) nunca pinta a
+    # regra genérica `QWidget { background: ... }` do QSS - qualquer pedaço
+    # dela onde NENHUM widget-filho pinta nada por cima (espaço vazio de
+    # sidebar/view/painel) fica com alpha 0 de verdade, e o Windows trata
+    # isso como clique-através pro que estiver atrás do SIREN (achado do
+    # usuário, 2026-09-06: "ao clicar dentro de outro espaço da janela, o
+    # clique passa direto" - mesmo bug do `#barraTitulo`, só que em
+    # qualquer lugar da janela, não só na barra de título). Com isso
+    # ligado, o `rgba(0, 0, 0, 1)` da regra genérica em styles.py cobre a
+    # janela inteira como uma camada base sempre não-zero, e cada
+    # widget-filho que quiser seu próprio tom (sidebar, playerBar, etc.)
+    # ainda precisa do MESMO atributo pra pintar por cima dela.
+    widget.setAttribute(Qt.WA_StyledBackground, True)
     widget.winId()
     cantos_ok = win32_dwm.aplicar_cantos_redondos(widget)
     win32_dwm.remover_cor_borda(widget)
