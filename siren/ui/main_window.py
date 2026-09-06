@@ -2,7 +2,7 @@
 """Janela principal do SIREN (v1) - só o caminho crítico do PLANO_SIREN.md,
 seção 12: Caos -> resolve -> toca -> feedback volta pro ECHO. Fila,
 biblioteca, favoritos (★), busca própria ficam pra v1.1+ (seção 10)."""
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QHBoxLayout, QLabel, QMainWindow, QPushButton, QVBoxLayout, QWidget,
 )
@@ -13,12 +13,23 @@ from siren.playback.player import Player
 
 
 class MainWindow(QMainWindow):
+    # `player.observar_fim_de_faixa` chama esse callback na THREAD DO MPV
+    # (nunca a thread do Qt) - emitir um Signal (thread-safe, Qt enfileira a
+    # entrega sozinho quando quem emite e quem recebe moram em threads
+    # diferentes) é a única forma seguro de reagir a isso mexendo em
+    # widget (mesmo padrão documentado no Project-IRIS pro hotkey global,
+    # mesmo motivo: nunca tocar QWidget fora da thread dona dele). Achado
+    # real (2026-09-06, usuário: "quando clico em caos, só toca 1 música").
+    sinal_fim_de_faixa = Signal()
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SIREN")
         self.resize(360, 160)
 
         self._player = Player()
+        self._player.observar_fim_de_faixa(self.sinal_fim_de_faixa.emit)
+        self.sinal_fim_de_faixa.connect(self._tocar_proxima)
         self._faixa_atual = None  # {"artista", "titulo"}
         self._historico_sessao = []  # pilha simples de faixas já tocadas NESTA sessão, sem persistência (histórico local de verdade é v1.4)
         self._excluidos_sessao = []  # "artista::titulo" já sugeridos - evita repetição dentro da mesma sessão

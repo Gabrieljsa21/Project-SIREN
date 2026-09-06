@@ -14,8 +14,6 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from siren.ui import win32_dwm
 
-LIMIAR_ARRASTAR_PIXELS = 3
-
 
 def configurar_janela_vidro_fosco(widget, cor_hex, alpha=130, acrylic_ativado=True):
     """Sem borda + translúcida + cantos nativos + Acrylic. Devolve um dict
@@ -40,7 +38,6 @@ class BarraTitulo(QWidget):
     def __init__(self, janela, titulo, parent=None):
         super().__init__(parent)
         self._janela = janela
-        self._pos_pressionada = None
         self.setFixedHeight(38)
         self.setObjectName("barraTitulo")
 
@@ -67,19 +64,21 @@ class BarraTitulo(QWidget):
         layout.addWidget(botao_fechar)
 
     def mousePressEvent(self, evento):
-        self._pos_pressionada = evento.globalPosition().toPoint()
-
-    def mouseMoveEvent(self, evento):
-        if self._pos_pressionada is None:
-            return
-        atual = evento.globalPosition().toPoint()
-        delta = atual - self._pos_pressionada
-        if delta.manhattanLength() > LIMIAR_ARRASTAR_PIXELS:
-            self._janela.move(self._janela.pos() + delta)
-            self._pos_pressionada = atual
-
-    def mouseReleaseEvent(self, evento):
-        self._pos_pressionada = None
+        """Arrastar via `startSystemMove()` (Qt 5.15+/6, nativo do SO) - em
+        vez de calcular delta de posição à mão (`janela.move(...)` a cada
+        `mouseMoveEvent`). Achado real (2026-09-06, usuário: "não estou
+        conseguindo mover as janelas, quando clico pra arrastá-las, elas se
+        minimizam") - mover a janela chamando `.move()` repetidamente
+        durante o arrasto, numa janela sem borda/translúcida, deixava o
+        DWM do Windows confuso sobre o estado dela. Delegar o arrasto
+        inteiro pro sistema operacional evita essa classe de bug inteira -
+        mesma técnica usada por apps reais com título próprio (VS Code,
+        Windows Terminal)."""
+        if evento.button() == Qt.LeftButton:
+            handle = self._janela.windowHandle()
+            if handle is not None:
+                handle.startSystemMove()
+            evento.accept()
 
     def mouseDoubleClickEvent(self, evento):
         if self._janela.isMaximized():

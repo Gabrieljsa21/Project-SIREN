@@ -7,7 +7,7 @@ do Modo Leve (MPV + Playback Resolver + orquestrador compartilhado, ver
 Biblioteca e Busca própria ainda mostram um aviso "em construção" (ver
 TODO.md) - entregar o resto funcionando é melhor que atrasar tudo esperando
 ficar completo de uma vez."""
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QHBoxLayout, QLabel, QPushButton,
     QSlider, QStackedWidget, QVBoxLayout, QWidget,
@@ -50,6 +50,11 @@ NAVEGACAO = [
 
 
 class FullWindow(QWidget):
+    # Ver mesmo comentário em ui/main_window.py::MainWindow.sinal_fim_de_faixa
+    # - o callback do MPV roda na thread dele, nunca a do Qt; Signal é a
+    # forma segura de marshaling de volta pra GUI thread.
+    sinal_fim_de_faixa = Signal()
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SIREN")
@@ -57,6 +62,8 @@ class FullWindow(QWidget):
 
         self._player = Player()
         self._player.definir_volume(config_mod.obter("volume_inicial"))
+        self._player.observar_fim_de_faixa(self.sinal_fim_de_faixa.emit)
+        self.sinal_fim_de_faixa.connect(self._tocar_proxima)
         self._faixa_atual = None
         self._historico_sessao = []  # pilha simples pro ⏮ - mesma ideia do Modo Leve, sem persistência
         self._excluidos_sessao = []
