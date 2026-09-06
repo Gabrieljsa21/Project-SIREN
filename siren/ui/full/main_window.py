@@ -111,6 +111,11 @@ class FullWindow(QWidget):
     def _construir_sidebar(self):
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
+        # QWidget puro não pinta o próprio "background" do QSS sozinho -
+        # sem isso o tom mais escuro de #sidebar (ver styles.py) nunca
+        # aparecia, ficava indistinguível do resto do vidro fosco (mesmo
+        # motivo do fix de clique-através em chrome.py::BarraTitulo).
+        sidebar.setAttribute(Qt.WA_StyledBackground, True)
         sidebar.setFixedWidth(220)
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(14, 18, 14, 14)
@@ -177,6 +182,7 @@ class FullWindow(QWidget):
     def _construir_barra_player(self):
         barra = QWidget()
         barra.setObjectName("playerBar")
+        barra.setAttribute(Qt.WA_StyledBackground, True)  # ver comentário em _construir_sidebar
         barra.setFixedHeight(78)
         layout = QHBoxLayout(barra)
         layout.setContentsMargins(20, 10, 20, 10)
