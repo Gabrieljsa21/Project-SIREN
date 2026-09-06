@@ -23,7 +23,7 @@ from siren.core import config as config_mod
 TIMEOUT = 15
 _URL_MYMEMORY = "https://api.mymemory.translated.net/get"
 _URL_GROQ = "https://api.groq.com/openai/v1/chat/completions"
-_MODELO_GROQ = "llama-3.3-70b-versatile"
+_MODELO_GROQ = "openai/gpt-oss-120b"  # llama-3.3-70b-versatile foi descomissionado (ver GAIA, 2026-08-15)
 
 
 def traducao_disponivel():
