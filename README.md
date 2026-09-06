@@ -39,9 +39,22 @@ de dados, guardrails, critérios da v1 e roadmap).
 
 ```bash
 uv sync
-uv run siren
+uv run siren            # abre no modo configurado (padrão: Leve)
+uv run siren --lite      # força o Modo Leve, ignora a configuração salva
+uv run siren --full      # força o Modo Completo, ignora a configuração salva
 ```
 
-Sem nenhuma variável de ambiente configurada, o SIREN funciona em modo
-standalone (sem Caos/recomendação) assim que a busca própria (v1.3) estiver
-implementada. Na v1, a fonte de faixas é só o ECHO - ver `.env.example`.
+## Modo Leve × Modo Completo
+
+Duas janelas, mesmo motor de reprodução por baixo (ver PLANO_SIREN.md, seção 13):
+
+- **Leve** (padrão de fábrica) - janela simples, sem efeito visual nenhum.
+  Feito pra rodar de lado com jogo/programa pesado sem competir por CPU/GPU.
+- **Completo** - vidro fosco (Acrylic, igual ao Argus), biblioteca/playlists/
+  favoritos/fila/histórico/descoberta.
+
+Qual abre por padrão fica em `data/config.json` (`modo_ui`) - editável na mão
+ou (futuramente) por uma tela de configurações dentro do próprio SIREN.
+
+Na v1, a fonte de faixas do Caos é só o ECHO (`.env.example`); busca própria
+(v1.3) ainda não existe.

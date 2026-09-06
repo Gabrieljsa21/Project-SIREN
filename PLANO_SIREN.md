@@ -129,15 +129,22 @@ letras, busca própria, múltiplos providers ou telas extras.
 ## 10. Roadmap incremental
 
 ```text
-v1     Caos + playback + votos (só ECHO como fonte de faixa)
-v1.1   fila / anterior / próximo / volume / seek
-v1.2   mini-player + atalhos multimídia do Windows
-v1.3   busca própria (yt-dlp direto, sem precisar do ECHO)
-v1.4   histórico local + favoritos (★)
-v1.5   playlists
-v1.6   artista / álbum / letras
-v2     resolver avançado + múltiplas fontes + cache/fallback
+v1     Caos + playback + votos (só ECHO como fonte de faixa) - FEITO
+v1.1   fila / anterior / próximo / volume / seek - fila/anterior/próximo/
+       volume feitos (Modo Completo); seek ainda não
+v1.2   mini-player + atalhos multimídia do Windows - não iniciado
+v1.3   busca própria (yt-dlp direto, sem precisar do ECHO) - não iniciado
+       (view "Busca" existe só como placeholder)
+v1.4   histórico local + favoritos (★) - FEITO (Modo Completo)
+v1.5   playlists - FEITO (Modo Completo, CRUD completo)
+v1.6   artista / álbum / letras - letras FEITAS (backend, ver seção 15);
+       artista/álbum (Biblioteca de verdade) não iniciado
+v2     resolver avançado + múltiplas fontes + cache/fallback - não iniciado
 ```
+
+Dois itens novos que não estavam no roadmap original (pedido do usuário,
+2026-09-06): **download offline** (seção 14) e **letras sincronizadas**
+(seção 15) - ambos com backend pronto, ver TODO.md pro que falta de UI.
 
 ## 11. Referências (arquitetura, não código)
 
@@ -164,3 +171,58 @@ Não tenta o player inteiro. Prova só o caminho crítico:
 SIREN abre → conecta ao ECHO → pede uma faixa do Caos
 → yt-dlp resolve → MPV toca localmente → 👎/⏮/▶/⏭/❤️ → ECHO recebe
 ```
+
+## 13. Modo Leve × Modo Completo
+
+Decisão de 2026-09-06 (pedido do usuário: "cria meio que 2 versões no mesmo
+projeto"): o mesmo motor de reprodução (MPV + Playback Resolver +
+`playback/orquestrador.py`) atrás de DUAS janelas diferentes, nunca duas
+implementações de player.
+
+- **Modo Leve** (`siren/ui/main_window.py`, `--lite`, padrão de fábrica) -
+  janela simples, sem Acrylic/vidro fosco, sem telas extras. Existe
+  especificamente pra rodar de lado com jogo/programa pesado sem competir
+  por CPU/GPU - qualquer efeito visual a mais aqui é regressão, não
+  melhoria.
+- **Modo Completo** (`siren/ui/full/`, `--full`) - vidro fosco (Acrylic)
+  igual ao Argus (`ui/win32_dwm.py`, mesmo `ctypes` puro já validado lá,
+  sem a função de Mica que o Argus testou e o usuário rejeitou), sidebar
+  com Tocando Agora/Descoberta/Biblioteca/Playlists/Favoritos/Fila/
+  Histórico/Busca.
+- `core/config.py::modo_ui` decide qual abre por padrão; `--lite`/`--full`
+  sobrescreve na hora sem mexer na configuração salva.
+
+> **Nenhuma feature de peso (Acrylic, biblioteca completa, fila, letras
+> sincronizadas) deve ser adicionada ao Modo Leve.** Ele existe pra pesar o
+> mínimo possível - qualquer coisa nova ali precisa justificar o custo
+> específico pra esse objetivo, não só "já que tem no Completo".
+
+## 14. Download offline
+
+Pedido do usuário (2026-09-06): "acho interessante ter opção de baixar
+música, pra poder ouvir mesmo sem internet". `core/downloads.py` reaproveita
+o Playback Resolver (mesma busca yt-dlp), só troca `download=False` por
+`True` - sem pós-processador de áudio, fica com o container original (webm/
+m4a) que o MPV já toca direto. `playback/orquestrador.py::tocar_faixa`
+sempre confere arquivo baixado ANTES de resolver pela rede (funciona
+offline de verdade quando já baixada).
+
+**Pendente:** nenhuma tela ainda tem um botão "baixar" (backend pronto e
+testado, sem UI que chame `downloads.baixar()` - ver TODO.md).
+
+## 15. Letras sincronizadas
+
+Pedido do usuário (2026-09-06): "gosto de ter como ver a letra e a tradução
+no momento que é cantada". `integrations/lyrics.py` consulta o LRCLIB
+(lrclib.net - gratuito, sem chave/login, mesmo critério que já levou o ECHO
+a escolher Last.fm), devolve linhas já parseadas do LRC
+(`tempo_segundos`/`texto`). Validado contra a API real.
+
+**TRADUÇÃO fica de fora por decisão explícita, não esquecimento** - LRCLIB
+não traduz, e as opções disponíveis (API paga, ou um LLM) quebrariam "SIREN
+funciona sozinho" (dependeriam de chave/custo/login). Pendência real, não
+implementar sem antes decidir COM o usuário qual serviço usar.
+
+**Pendente:** nenhuma tela ainda mostra letra nenhuma (backend pronto e
+testado contra a API real, sem UI que chame `lyrics.buscar_letra` nem
+sincronize com `player.posicao_segundos` - ver TODO.md).
