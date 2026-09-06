@@ -38,3 +38,23 @@ def test_enviar_feedback_nunca_levanta_excecao_com_echo_fora(monkeypatch):
 def test_obter_voto_none_quando_nunca_avaliada(monkeypatch):
     monkeypatch.setattr(echo_client, "_get", lambda *a, **k: {"voto": None})
     assert echo_client.obter_voto("MF DOOM", "Doomsday") is None
+
+
+def test_obter_em_alta_lista_vazia_quando_echo_fora_do_ar(monkeypatch):
+    monkeypatch.setattr(echo_client, "_get", lambda *a, **k: None)
+    assert echo_client.obter_em_alta() == []
+
+
+def test_obter_em_alta_devolve_lista(monkeypatch):
+    monkeypatch.setattr(echo_client, "_get", lambda *a, **k: {"em_alta": [{"artista": "MF DOOM", "titulo": "Doomsday"}]})
+    assert echo_client.obter_em_alta() == [{"artista": "MF DOOM", "titulo": "Doomsday"}]
+
+
+def test_obter_redescobertas_lista_vazia_quando_echo_fora_do_ar(monkeypatch):
+    monkeypatch.setattr(echo_client, "_get", lambda *a, **k: None)
+    assert echo_client.obter_redescobertas() == []
+
+
+def test_obter_redescobertas_devolve_lista(monkeypatch):
+    monkeypatch.setattr(echo_client, "_get", lambda *a, **k: {"redescobertas": [{"artista": "MF DOOM", "titulo": "Doomsday", "dias_sem_aparecer": 200}]})
+    assert echo_client.obter_redescobertas(quantidade=1) == [{"artista": "MF DOOM", "titulo": "Doomsday", "dias_sem_aparecer": 200}]
