@@ -42,9 +42,11 @@
   título. Não confirmado se ainda funciona. Status: aguardando
   confirmação do usuário.
 - **Confirmar clique em espaço vazio das views não passa mais através**
-  (2026-09-06) - `FullWindow.nativeEvent` passou a interceptar
-  `WM_NCHITTEST` e responder `HTCLIENT` sempre, antes do Qt decidir
-  sozinho com base no alpha do pixel (fix não pintado por CSS, então não
-  reintroduz o "preto sólido" do PR revertido #27/#28). Não dá pra testar
-  clique nativo de verdade fora de uma sessão interativa real - status:
-  aguardando confirmação do usuário.
+  (2026-09-06) - causa raiz real das 2 tentativas anteriores falharem:
+  `rgba()` no QSS usa alpha como FRAÇÃO 0.0-1.0, não inteiro 0-255 -
+  `rgba(0, 0, 0, 1)` = opacidade TOTAL, não "1 de 255" (mesmo erro que o
+  Project-ARGUS já tinha documentado). Corrigido pra `rgba(0, 0, 0,
+  0.004)` (≈1/255 de verdade) + `Qt.WA_StyledBackground` na janela de
+  topo inteira (`chrome.py::configurar_janela_vidro_fosco`) - cobre
+  qualquer espaço vazio sem escurecer o vidro fosco. Status: aguardando
+  confirmação do usuário.
