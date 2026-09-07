@@ -24,12 +24,13 @@ class _CarregarDescobertaWorker(QThread):
 class ViewDescoberta(QWidget):
     """Camada de inteligência do ECHO - some sozinha (sem travar o resto do
     SIREN) quando ele está fora do ar, cada lista só fica vazia com um
-    aviso (PLANO_SIREN.md, seção 2)."""
+    aviso (docs/PLANO_SIREN.md, seção 2)."""
 
     def __init__(self, ao_tocar):
         super().__init__()
         self._ao_tocar = ao_tocar
         self._worker = None
+        self._tem_dados = False  # 1ª carga mostra "Carregando...", as próximas atualizam em silêncio (ver atualizar())
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
@@ -75,8 +76,18 @@ class ViewDescoberta(QWidget):
             self._ao_tocar(faixa["titulo"], faixa["artista"], origem="descoberta")
 
     def atualizar(self):
-        self._mostrar_carregando(self._lista_em_alta)
-        self._mostrar_carregando(self._lista_redescobertas)
+        # 🔥 Achado do usuário (2026-09-06): "por que precisa carregar toda
+        # vez que clico em Descoberta?" - antes, TODA entrada na view limpava
+        # as 2 listas e mostrava "Carregando..." de novo, mesmo o ECHO já
+        # tendo cache (10min, ver `echo/providers/lastfm.py`) e os dados
+        # quase certamente não tendo mudado desde a última vez. Só a 1ª
+        # carga de verdade mostra "Carregando..." - as próximas mantêm o que
+        # já estava na tela (sem piscar/limpar) e só trocam o conteúdo
+        # quando a resposta nova chega, atualização silenciosa em segundo
+        # plano.
+        if not self._tem_dados:
+            self._mostrar_carregando(self._lista_em_alta)
+            self._mostrar_carregando(self._lista_redescobertas)
         worker = _CarregarDescobertaWorker(self)
         worker.concluido.connect(lambda em_alta, redescobertas, w=worker: self._ao_carregar(w, em_alta, redescobertas))
         self._worker = worker
@@ -87,6 +98,7 @@ class ViewDescoberta(QWidget):
         # `atualizar()` no meio do caminho (ex.: usuário saiu e voltou rápido).
         if worker is not self._worker:
             return
+        self._tem_dados = True
         self._preencher(self._lista_em_alta, em_alta)
         self._preencher(self._lista_redescobertas, redescobertas)
 
