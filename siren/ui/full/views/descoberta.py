@@ -1,8 +1,24 @@
 # -*- coding: utf-8 -*-
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
 
 from siren.integrations import echo_client
+
+
+class _CarregarDescobertaWorker(QThread):
+    """`echo_client.obter_em_alta`/`obter_redescobertas` são chamadas de rede
+    de verdade (até 15s de timeout cada) - achado do usuário (2026-09-06):
+    "porque está demorando pra entrar na página Descoberta... entrando,
+    saindo e entrando de novo também demora". Rodar na GUI thread (como era
+    antes) travava a janela inteira TODA VEZ que a view era mostrada, não só
+    na 1ª. Ver também o cache adicionado no Project-ECHO
+    (`echo/providers/lastfm.py`) pro outro lado real do problema: sem
+    cache, `/em_alta` resolvia o gênero de até 50 artistas com 1 chamada
+    HTTP CADA, sempre do zero."""
+    concluido = Signal(list, list)  # em_alta, redescobertas
+
+    def run(self):
+        self.concluido.emit(echo_client.obter_em_alta(), echo_client.obter_redescobertas())
 
 
 class ViewDescoberta(QWidget):
@@ -13,6 +29,7 @@ class ViewDescoberta(QWidget):
     def __init__(self, ao_tocar):
         super().__init__()
         self._ao_tocar = ao_tocar
+        self._worker = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
@@ -58,8 +75,26 @@ class ViewDescoberta(QWidget):
             self._ao_tocar(faixa["titulo"], faixa["artista"], origem="descoberta")
 
     def atualizar(self):
-        self._preencher(self._lista_em_alta, echo_client.obter_em_alta())
-        self._preencher(self._lista_redescobertas, echo_client.obter_redescobertas())
+        self._mostrar_carregando(self._lista_em_alta)
+        self._mostrar_carregando(self._lista_redescobertas)
+        worker = _CarregarDescobertaWorker(self)
+        worker.concluido.connect(lambda em_alta, redescobertas, w=worker: self._ao_carregar(w, em_alta, redescobertas))
+        self._worker = worker
+        worker.start()
+
+    def _ao_carregar(self, worker, em_alta, redescobertas):
+        # Descarta resultado de uma chamada antiga se a view já pediu outra
+        # `atualizar()` no meio do caminho (ex.: usuário saiu e voltou rápido).
+        if worker is not self._worker:
+            return
+        self._preencher(self._lista_em_alta, em_alta)
+        self._preencher(self._lista_redescobertas, redescobertas)
+
+    def _mostrar_carregando(self, lista):
+        lista.clear()
+        item = QListWidgetItem("Carregando...")
+        item.setFlags(Qt.NoItemFlags)
+        lista.addItem(item)
 
     def _preencher(self, lista, faixas):
         lista.clear()
