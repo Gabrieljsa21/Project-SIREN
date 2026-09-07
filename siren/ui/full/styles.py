@@ -16,7 +16,7 @@ COR_PAINEL_2 = "rgba(38, 54, 94, 170)"
 COR_LIKE = "#ea6b86"
 COR_DISLIKE = "#7784ab"
 
-# 🔥 `#barraTitulo` NUNCA pode usar `background: transparent` (alpha 0 de
+# 🔥 Nenhum widget aqui pode usar `background: transparent` (alpha 0 de
 # verdade) - achado real (2026-09-06, usuário: "é como se o clique passasse
 # por ele e clicasse no que está atrás"): numa janela translúcida por pixel
 # (`WA_TranslucentBackground` + Acrylic, ver chrome.py), o Windows trata
@@ -24,30 +24,26 @@ COR_DISLIKE = "#7784ab"
 # documentado no Project-ARGUS, `argus/core/widget.py`) - o clique nem
 # chegava a virar `mousePressEvent` (confirmado com log de diagnóstico), ia
 # direto pra janela por trás do SIREN, que então vinha pra frente e cobria
-# ele (parecia "minimizar" sem ser isso de verdade). `rgba(0, 0, 0, 1)` é
-# 1/255 (imperceptível, mas != 0) - suficiente pro Windows contar como
-# "sólido o bastante" ali. **Só essa mudança de CSS não bastou** ("continua
-# com erro") - `BarraTitulo` é um `QWidget` puro, que não pinta
-# "background" do QSS sozinho sem `Qt.WA_StyledBackground` (ver
-# `chrome.py::BarraTitulo.__init__`) - sem essa flag o valor daqui nunca
-# virava pixel de verdade.
+# ele.
 #
-# **Não generalizar isso pra regra `QWidget` genérica (tentado e revertido
-# no mesmo dia, usuário: "essas cores ficaram horríveis")** - ligar
-# `WA_StyledBackground` na JANELA DE TOPO inteira pinta esse
-# `rgba(0, 0, 0, 1)` por cima de TODA a área de conteúdo também, e na
-# prática qualquer alpha aí rendeu opaco - virou um retângulo preto sólido
-# cobrindo o vidro fosco inteiro. Cada painel que precisa ser clicável
-# resolve isso INDIVIDUALMENTE (mesmo padrão do Project-ARGUS) - ver
-# `chrome.py::configurar_janela_vidro_fosco`.
+# 🔥 PEGADINHA DE UNIDADE (2026-09-06, 2ª rodada - "mesmo problema, como foi
+# feito no Argus?") - `rgba()` no QSS/CSS usa alpha como FRAÇÃO 0.0-1.0, não
+# um inteiro 0-255. `rgba(0, 0, 0, 1)` (usado numa 1ª tentativa) significa
+# opacidade TOTAL, não "1 de 255" - o Project-ARGUS já tinha documentado
+# exatamente esse mesmo erro (`argus/core/widget.py::_ChipCategoria`).
+# `rgba(0, 0, 0, 0.004)` (≈1/255 de verdade) é o valor certo -
+# imperceptível, mas != 0. Além disso, `QWidget` puro não pinta o próprio
+# "background" do QSS sozinho sem `Qt.WA_StyledBackground` (ver
+# `chrome.py::BarraTitulo.__init__`/`configurar_janela_vidro_fosco`) - sem
+# essa flag o valor daqui nunca vira pixel de verdade.
 QSS = f"""
 QWidget {{
     color: {COR_TEXTO};
     font-family: "Segoe UI";
     font-size: 13px;
-    background: transparent;
+    background: rgba(0, 0, 0, 0.004);
 }}
-#barraTitulo {{ background: rgba(0, 0, 0, 1); }}
+#barraTitulo {{ background: rgba(0, 0, 0, 0.004); }}
 #barraTituloTexto {{ font-weight: 600; color: {COR_TEXTO_FRACO}; }}
 #barraTituloBotao, #barraTituloBotaoFechar {{
     background: transparent; border: none; border-radius: 6px;

@@ -22,20 +22,18 @@ def configurar_janela_vidro_fosco(widget, cor_hex, alpha=130, acrylic_ativado=Tr
     antigo, sem suporte nenhum a isso)."""
     widget.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
     widget.setAttribute(Qt.WA_TranslucentBackground)
-    # 🔥 NÃO ligar `WA_StyledBackground` na própria janela de topo (tentado
-    # e revertido em 2026-09-06, achado do usuário: "essas cores ficaram
-    # horríveis") - isso faz a janela pintar a regra genérica `QWidget {
-    # background: ... }` do QSS por cima de TUDO, inclusive a área de
-    # conteúdo inteira (onde o vidro fosco de verdade precisa aparecer) -
-    # na prática qualquer valor de alpha aí, por menor que seja, rendeu
-    # opaco (mesmo "achado" documentado no Project-ARGUS pra
-    # `rgba(0, 0, 0, 1)`), virando um retângulo preto sólido cobrindo o
-    # Acrylic inteiro. O clique-através em espaço vazio (que essa linha
-    # tentava resolver) continua parcialmente sem solução geral - cada
-    # painel que precisa ser clicável E visualmente distinto (barra de
-    # título, sidebar, barra de player) resolve isso individualmente com
-    # o MESMO atributo só nele (ver `BarraTitulo.__init__` e
-    # `full/main_window.py::_construir_sidebar`/`_construir_barra_player`).
+    # 🔥 Sem isso, a própria janela de topo (QWidget puro) nunca pinta a
+    # regra genérica `QWidget { background: ... }` do QSS - qualquer pedaço
+    # dela onde nenhum widget-filho pinta nada por cima (espaço vazio de
+    # view/painel) fica com alpha 0 de verdade = clique-através (achado do
+    # usuário, 2026-09-06: "ao clicar dentro de outro espaço da janela, o
+    # clique passa direto"). 1ª tentativa (ligar isso com a regra genérica
+    # em `rgba(0, 0, 0, 1)`) virou um retângulo preto sólido cobrindo o
+    # Acrylic inteiro ("essas cores ficaram horríveis") - causa real, achada
+    # comparando com o Project-ARGUS: `rgba()` no QSS usa alpha como FRAÇÃO
+    # 0.0-1.0, não inteiro 0-255, então "1" = opacidade TOTAL, não "1 de
+    # 255" (ver `full/styles.py`, valor corrigido pra `0.004`).
+    widget.setAttribute(Qt.WA_StyledBackground, True)
     widget.winId()
     cantos_ok = win32_dwm.aplicar_cantos_redondos(widget)
     win32_dwm.remover_cor_borda(widget)
@@ -56,10 +54,9 @@ class BarraTitulo(QWidget):
         self.setObjectName("barraTitulo")
         # 🔥 QWidget puro NÃO pinta "background" do QSS sozinho (diferente
         # de QFrame/QPushButton/etc, que já são "style aware") - sem isso,
-        # o `rgba(0, 0, 0, 1)` de styles.py nunca chegava a virar pixel de
-        # verdade, o alpha real continuava 0 e o clique-através (ver
-        # comentário em styles.py) persistia mesmo depois do fix de CSS
-        # (achado do usuário: "continua com erro").
+        # o valor de styles.py nunca chegava a virar pixel de verdade, o
+        # alpha real continuava 0 e o clique-através (ver comentário em
+        # styles.py) persistia mesmo depois do fix de CSS.
         self.setAttribute(Qt.WA_StyledBackground, True)
 
         rotulo = QLabel(titulo)
