@@ -9,6 +9,7 @@ mudar a configuração salva:
   lado com jogo/programa pesado sem competir por CPU/GPU.
 - Completo: biblioteca/playlists/fila/favoritos, vidro fosco tipo Argus."""
 import argparse
+import os
 import sys
 
 from dotenv import load_dotenv
@@ -16,6 +17,8 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from siren.core import config as config_mod  # noqa: E402
+
+_CAMINHO_ICONE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "icone_siren.png")
 
 
 def _analisar_argumentos():
@@ -26,7 +29,27 @@ def _analisar_argumentos():
     return parser.parse_args()
 
 
+def _definir_app_user_model_id():
+    """Sem isso, o SIREN e a GAIA (e qualquer satélite rodando pelo mesmo
+    Python compartilhado do `uv` - `.venv/Scripts/pythonw.exe` é só um
+    trampolim, o processo real sobe de `AppData\\Roaming\\uv\\python\\...\\
+    python.exe`, IGUAL pra todo projeto) viram a MESMA identidade pro
+    Windows agrupar na barra de tarefas - achado do usuário (2026-09-07):
+    "por que siren usa o mesmo espaço de executável que a gaia?... na barra
+    de tarefas elas se sobrepõem". `SetCurrentProcessExplicitAppUserModelID`
+    dá um ID PRÓPRIO pra este processo, ignorando o caminho do .exe -
+    precisa ser chamado ANTES de criar a QApplication/qualquer janela."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Nordware.SIREN")
+    except Exception:
+        pass
+
+
 def main():
+    _definir_app_user_model_id()
     argumentos = _analisar_argumentos()
     modo_ui = argumentos.modo_ui or config_mod.obter("modo_ui")
 
@@ -36,6 +59,11 @@ def main():
         from siren.ui.main_window import criar_aplicacao
 
     app, janela = criar_aplicacao()
+    if os.path.isfile(_CAMINHO_ICONE):
+        from PySide6.QtGui import QIcon
+        icone = QIcon(_CAMINHO_ICONE)
+        app.setWindowIcon(icone)
+        janela.setWindowIcon(icone)
     janela.show()
     sys.exit(app.exec())
 
