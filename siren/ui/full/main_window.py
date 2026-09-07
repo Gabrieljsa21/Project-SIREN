@@ -7,6 +7,10 @@ do Modo Leve (MPV + Playback Resolver + orquestrador compartilhado, ver
 Biblioteca e Busca própria ainda mostram um aviso "em construção" (ver
 TODO.md) - entregar o resto funcionando é melhor que atrasar tudo esperando
 ficar completo de uma vez."""
+import ctypes
+import ctypes.wintypes
+import sys
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QHBoxLayout, QLabel, QPushButton,
@@ -349,6 +353,24 @@ class FullWindow(QWidget):
     def closeEvent(self, event):
         self._player.encerrar()
         super().closeEvent(event)
+
+    def nativeEvent(self, eventType, message):
+        """Clique-através em espaço vazio (2026-09-06, usuário: "clicar nele
+        volta pro bug de clique passar e ignorar ele") - o Qt decide sozinho,
+        via WM_NCHITTEST, se um pixel translúcido o bastante deixa o clique
+        passar direto pra janela de trás (mesmo mecanismo por trás do bug já
+        corrigido na barra de título/sidebar/barra de player, só que aqueles
+        3 painéis resolvem pintando um pixel != 0 de verdade - áreas
+        genuinamente vazias de uma view não têm esse luxo, senão perdem o
+        vidro fosco, ver PR revertido #27). Responder HTCLIENT aqui ANTES do
+        Qt decidir sozinho garante que a JANELA INTEIRA sempre aceita clique,
+        não importa o alpha do pixel - decisão de clique nunca mais depende
+        de aparência."""
+        if sys.platform == "win32" and eventType == b"windows_generic_MSG":
+            msg = ctypes.wintypes.MSG.from_address(int(message))
+            if msg.message == 0x0084:  # WM_NCHITTEST
+                return True, 1  # HTCLIENT
+        return super().nativeEvent(eventType, message)
 
 
 def criar_aplicacao():
