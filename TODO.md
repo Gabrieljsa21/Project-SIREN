@@ -41,3 +41,13 @@
   que o SO agora entra num loop de mover a cada 1º clique da barra de
   título. Não confirmado se ainda funciona. Status: aguardando
   confirmação do usuário.
+- **Clique-através em espaço genuinamente vazio do Modo Completo**
+  (2026-09-06) - barra de título/sidebar/barra de player já foram
+  corrigidas (`Qt.WA_StyledBackground` por widget, ver `chrome.py` e
+  `full/main_window.py`), mas área vazia de dentro das views (ex.: fundo
+  em branco da tela "Busca") ainda pode deixar o clique passar direto pra
+  janela de trás - tentativa de resolver isso de forma genérica (pintando
+  a janela de topo inteira) tornou a área de conteúdo preta sólida
+  (revertido, "essas cores ficaram horríveis"). Resolver direito precisa
+  de outra técnica (interceptar `WM_NCHITTEST` nativo, não CSS/alpha).
+  Complexidade: média. Status: não iniciado.
