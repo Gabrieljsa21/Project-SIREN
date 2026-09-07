@@ -31,12 +31,21 @@ COR_DISLIKE = "#7784ab"
 # "background" do QSS sozinho sem `Qt.WA_StyledBackground` (ver
 # `chrome.py::BarraTitulo.__init__`) - sem essa flag o valor daqui nunca
 # virava pixel de verdade.
+#
+# **Não generalizar isso pra regra `QWidget` genérica (tentado e revertido
+# no mesmo dia, usuário: "essas cores ficaram horríveis")** - ligar
+# `WA_StyledBackground` na JANELA DE TOPO inteira pinta esse
+# `rgba(0, 0, 0, 1)` por cima de TODA a área de conteúdo também, e na
+# prática qualquer alpha aí rendeu opaco - virou um retângulo preto sólido
+# cobrindo o vidro fosco inteiro. Cada painel que precisa ser clicável
+# resolve isso INDIVIDUALMENTE (mesmo padrão do Project-ARGUS) - ver
+# `chrome.py::configurar_janela_vidro_fosco`.
 QSS = f"""
 QWidget {{
     color: {COR_TEXTO};
     font-family: "Segoe UI";
     font-size: 13px;
-    background: rgba(0, 0, 0, 1);
+    background: transparent;
 }}
 #barraTitulo {{ background: rgba(0, 0, 0, 1); }}
 #barraTituloTexto {{ font-weight: 600; color: {COR_TEXTO_FRACO}; }}
