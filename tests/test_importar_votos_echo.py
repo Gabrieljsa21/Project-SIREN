@@ -14,8 +14,10 @@ def test_importa_favoritando_e_adicionando_a_descobertas():
     assert favoritos_mod.esta_favoritada("Doomsday", "MF DOOM")
     assert favoritos_mod.esta_favoritada("Rust and Velvet", "Nine Grain")
     faixas_descobertas = playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_DESCOBERTAS)
+    faixas_curtidas = playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_CURTIDAS)
     assert {"titulo": "Doomsday", "artista": "MF DOOM"} in faixas_descobertas
     assert {"titulo": "Rust and Velvet", "artista": "Nine Grain"} in faixas_descobertas
+    assert {"titulo": "Doomsday", "artista": "MF DOOM"} in faixas_curtidas
 
 
 def test_importar_de_novo_nao_conta_como_nova_nem_duplica():

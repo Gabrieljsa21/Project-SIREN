@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 class ViewEmConstrucao(QWidget):
     """Placeholder honesto - melhor entregar o resto funcionando do que
-    atrasar tudo esperando ficar completo de uma vez (ver TODO.md)."""
+    atrasar tudo esperando ficar completo de uma vez (ver docs/TODO.md)."""
 
     def __init__(self, nome):
         super().__init__()
@@ -12,7 +12,7 @@ class ViewEmConstrucao(QWidget):
         layout.setContentsMargins(30, 30, 30, 30)
         titulo = QLabel(nome)
         titulo.setObjectName("tituloView")
-        legenda = QLabel("Ainda em construção - ver TODO.md do Project-SIREN.")
+        legenda = QLabel("Ainda em construção - ver docs/TODO.md do Project-SIREN.")
         legenda.setObjectName("legendaView")
         layout.addWidget(titulo)
         layout.addWidget(legenda)

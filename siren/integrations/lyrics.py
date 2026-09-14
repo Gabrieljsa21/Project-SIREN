@@ -13,7 +13,7 @@ esquecida: LRCLIB não traduz, e as opções de tradução disponíveis (API pag
 ou chamar um LLM) rompem "SIREN funciona sozinho" (dependeriam de chave/
 custo/login, contra o mesmo princípio que já levou o ECHO a escolher
 provedores gratuitos e sem login). Fica registrado como pendência real em
-PLANO_SIREN.md até haver decisão de produto sobre qual serviço usar."""
+docs/PLANO_SIREN.md até haver decisão de produto sobre qual serviço usar."""
 import re
 import requests
 

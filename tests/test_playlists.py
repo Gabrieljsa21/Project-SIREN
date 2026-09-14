@@ -48,3 +48,22 @@ def test_adicionar_a_descobertas():
     assert playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_DESCOBERTAS) == [
         {"titulo": "Doomsday", "artista": "MF DOOM"}
     ]
+
+
+def test_votos_viram_playlists_mutuamente_exclusivas():
+    playlists_mod.registrar_voto("Doomsday", "MF DOOM", positivo=True)
+    assert playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_CURTIDAS) == [
+        {"titulo": "Doomsday", "artista": "MF DOOM"}
+    ]
+
+    playlists_mod.registrar_voto("Doomsday", "MF DOOM", positivo=False)
+    assert playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_CURTIDAS) == []
+    assert playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_NAO_CURTIDAS) == [
+        {"titulo": "Doomsday", "artista": "MF DOOM"}
+    ]
+
+
+def test_playlists_de_voto_nao_podem_ser_excluidas():
+    playlists_mod.registrar_voto("Doomsday", "MF DOOM", positivo=True)
+    assert playlists_mod.excluir(playlists_mod.NOME_PLAYLIST_CURTIDAS) is False
+    assert len(playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_CURTIDAS)) == 1

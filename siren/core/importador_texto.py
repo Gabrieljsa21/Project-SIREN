@@ -2,7 +2,7 @@
 """Importar playlist colando texto - pedido do usuário (2026-09-06): "quero
 poder importar playlist do Spotify e YouTube". O Spotify NÃO dá pra
 importar direto via API sem exigir assinatura Premium ATIVA (mesmo achado
-documentado em `Project-ECHO/ARQUITETURA.md`, seção "Por que Last.fm não
+documentado em `Project-ECHO/docs/ARQUITETURA.md`, seção "Por que Last.fm não
 Spotify" - o app de desenvolvedor para de funcionar se o Premium expirar,
 igual quebrou a Fase 1 do ECHO). Colar o texto da playlist (copiado do
 app do Spotify, de um export, ou de qualquer lugar) evita essa dependência

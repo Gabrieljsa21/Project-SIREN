@@ -41,3 +41,22 @@ def test_stream_expirado():
     valido = resolver.ResolvedStream(url="x", title="t", artist="a", duration=None, thumbnail=None, source="youtube", expires_at=time.time() + 100)
     assert resolver.stream_expirado(expirado) is True
     assert resolver.stream_expirado(valido) is False
+
+
+def test_extrair_resultados_busca_ignora_entrada_invalida_e_prioriza_artista():
+    info = {"entries": [
+        None,
+        {"uploader": "Sem título"},
+        {"title": "Faixa A", "artist": "Artista A", "uploader": "Canal A", "duration": 123},
+        {"title": "Faixa B", "channel": "Canal B"},
+    ]}
+
+    assert resolver.extrair_resultados_busca(info) == [
+        {"titulo": "Faixa A", "artista": "Artista A", "duracao": 123},
+        {"titulo": "Faixa B", "artista": "Canal B", "duracao": None},
+    ]
+
+
+def test_buscar_faixas_vazia_nao_abre_youtube(monkeypatch):
+    monkeypatch.setattr(resolver.yt_dlp, "YoutubeDL", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError))
+    assert resolver.buscar_faixas("   ") == []

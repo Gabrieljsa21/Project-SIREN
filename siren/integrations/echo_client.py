@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Cliente HTTP pro Project ECHO (porta 8774, opcional - ver PLANO_SIREN.md
+"""Cliente HTTP pro Project ECHO (porta 8774, opcional - ver docs/PLANO_SIREN.md
 seção 2/8) - mesmo padrão de `assistant/integrations/echo_client.py` (GAIA):
 toda chamada devolve sempre um valor usável (nunca deixa a exceção subir),
 porque o SIREN precisa continuar funcionando com o ECHO desligado. Nenhuma
@@ -74,7 +74,7 @@ def sugerir_proxima(artista_atual, titulo_atual, excluidos=None):
 
 def enviar_feedback(artista, titulo, feedback):
     """`/radar/feedback_ao_vivo` - 👍/👎 (sinal de treino do ECHO, seção 4 do
-    PLANO_SIREN.md - NUNCA confundir com favoritar (★), que é local do
+    docs/PLANO_SIREN.md - NUNCA confundir com favoritar (★), que é local do
     SIREN e não passa por aqui). `feedback`: "positivo" ou "negativo"."""
     return _post("/radar/feedback_ao_vivo", {
         "discord_user_id": DONO_DISCORD_ID, "artista": artista, "titulo": titulo, "feedback": feedback,

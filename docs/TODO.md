@@ -7,17 +7,6 @@
   favoritos + playlists, não um scanner de arquivo (SIREN não tem arquivo
   de música além do que já foi baixado). Complexidade: média. Status: não
   iniciado.
-- **Busca própria** (view "search" hoje é só placeholder) - `yt_dlp` direto
-  (`ytsearch5:`), sem precisar do ECHO (v1.3 do roadmap). Complexidade:
-  baixa. Status: não iniciado.
-- **Seek na barra de player** - clicar na barra de progresso pra pular
-  pra um ponto da faixa (v1.1 do roadmap). Complexidade: baixa. Status:
-  não iniciado.
-- **Botão "Traduzir" trava a janela enquanto espera a API** - decisão
-  consciente por enquanto (tradução é rara, sob demanda); mover pra uma
-  thread própria (`QThread`/`QRunnable`) se isso incomodar na prática.
-  Complexidade: baixa. Status: não iniciado.
-
 ## Prioridade baixa
 
 - **Mini-player + atalhos multimídia do Windows** (v1.2 do roadmap,
@@ -25,11 +14,6 @@
 - **Resolver avançado + múltiplas fontes + cache/fallback** (v2 do roadmap)
   - só faz sentido depois que o resto estiver estável. Status: não
   iniciado.
-- **Importar do YouTube não bloqueia clique duplo** - clicar em "Importar do
-  YouTube" de novo enquanto uma importação já está rodando dispara uma
-  segunda `ImportYoutubeWorker` sobreposta (o botão não fica desabilitado
-  durante a espera, diferente do botão de baixar). Complexidade: baixa.
-  Status: não iniciado.
 - **Confirmar auto-avanço do Caos com faixa real até o fim** (2026-09-06) -
   `Player.observar_fim_de_faixa` foi verificado só até o registro da API
   (sem erro, contra o código-fonte real do python-mpv) - nunca vi uma

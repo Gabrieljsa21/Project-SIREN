@@ -1,11 +1,11 @@
-# Plano — Project SIREN
+# Plano - Project SIREN
 
 ## 1. Propósito
 
 SIREN é o player de música pessoal do ecossistema - um "Spotify pessoal": abrir
 o programa, tocar música, sem depender de entrar no canal de voz certo do
 Discord pra interagir com botões. Nasceu da avaliação de
-`Project-ECHO/PLANO_ECHO_PLAYER_LEVE.md` (arquivado - a Fase 7-9 daquele plano,
+`Project-ECHO/docs/PLANO_ECHO_PLAYER_LEVE.md` (arquivado - a Fase 7-9 daquele plano,
 que propunha um "ECHO Desktop" acoplado e migrar o ERIS, foi substituída por
 esta separação de domínio mais limpa).
 
@@ -138,11 +138,9 @@ letras, busca própria, múltiplos providers ou telas extras.
 
 ```text
 v1     Caos + playback + votos (só ECHO como fonte de faixa) - FEITO
-v1.1   fila / anterior / próximo / volume / seek - fila/anterior/próximo/
-       volume feitos (Modo Completo); seek ainda não
+v1.1   fila / anterior / próximo / volume / seek - FEITO (Modo Completo)
 v1.2   mini-player + atalhos multimídia do Windows - não iniciado
-v1.3   busca própria (yt-dlp direto, sem precisar do ECHO) - não iniciado
-       (view "Busca" existe só como placeholder)
+v1.3   busca própria (yt-dlp direto, sem precisar do ECHO) - FEITO
 v1.4   histórico local + favoritos (★) - FEITO (Modo Completo)
 v1.5   playlists - FEITO (Modo Completo, CRUD completo)
 v1.6   artista / álbum / letras - letras FEITAS (backend, ver seção 15);
@@ -194,9 +192,12 @@ implementações de player.
   melhoria.
 - **Modo Completo** (`siren/ui/full/`, `--full`) - vidro fosco (Acrylic)
   igual ao Argus (`ui/win32_dwm.py`, mesmo `ctypes` puro já validado lá,
-  sem a função de Mica que o Argus testou e o usuário rejeitou), sidebar
-  com Tocando Agora/Descoberta/Biblioteca/Playlists/Favoritos/Fila/
-  Histórico/Busca.
+  sem a função de Mica que o Argus testou e o usuário rejeitou). Segue a
+  arquitetura do Spotify: Início com descobertas no painel central, busca
+  permanente no topo, playlists na biblioteca lateral e player persistente
+  embaixo. Fila e Letras são ferramentas abertas pelo player, não abas de
+  navegação. `Músicas Curtidas` e `Não Curtidas` são playlists especiais,
+  atualizadas automaticamente pelos votos ❤️/👎 e sincronizadas com o ECHO.
 - `core/config.py::modo_ui` decide qual abre por padrão; `--lite`/`--full`
   sobrescreve na hora sem mexer na configuração salva.
 
@@ -240,7 +241,7 @@ não foge da responsabilidade da SIREN e entra na GAIA?" - correta: isso
 duplicava uma responsabilidade que já é da GAIA (`core/agent/llm_fallback.py`
 de lá tem rotação multi-conta/cooldown/múltiplos modelos há muito tempo,
 inclusive o MESMO padrão já resolvido antes pro Colecionador do ERIS -
-"o ideal não é você fazer isso, é a gaia", 2026-08-29). Trocado por um
+decisão de 2026-08-29 que atribuiu essa tarefa à GAIA). Trocado por um
 webhook reverso `POST /siren/traduzir_letra` (porta 8766, mesmo padrão que
 ERIS/MOIRAI/HESTIA já usam) - a GAIA vira uma integração OPCIONAL pro
 "llm" (igual o ECHO): sem ela no ar, `traducao_disponivel()` esconde o
@@ -266,7 +267,7 @@ spotfy e youtube".
   credencial nenhuma. Validado contra uma playlist pública real (35 faixas).
 - **Spotify** - **não dá pra importar direto via API sem exigir assinatura
   Premium ATIVA do usuário** (mesmo achado documentado em
-  `Project-ECHO/ARQUITETURA.md`, seção "Por que Last.fm não Spotify" - o app
+  `Project-ECHO/docs/ARQUITETURA.md`, seção "Por que Last.fm não Spotify" - o app
   de desenvolvedor para de funcionar se o Premium expirar). Resolvido com
   `core/importador_texto.py`: cola o texto da playlist (copiado do app do
   Spotify, ou de qualquer lugar), parseia "Artista - Título" por linha - sem

@@ -27,5 +27,6 @@ def importar_aprovadas(aprovadas):
         if not favoritos_mod.esta_favoritada(titulo, artista):
             favoritos_mod.favoritar(titulo, artista)
             novas += 1
+        playlists_mod.registrar_voto(titulo, artista, positivo=True)
         playlists_mod.adicionar_a_descobertas(titulo, artista)
     return novas

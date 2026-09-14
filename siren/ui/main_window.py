@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Janela principal do SIREN (v1) - só o caminho crítico do PLANO_SIREN.md,
+"""Janela principal do SIREN (v1) - só o caminho crítico do docs/PLANO_SIREN.md,
 seção 12: Caos -> resolve -> toca -> feedback volta pro ECHO. Fila,
 biblioteca, favoritos (★), busca própria ficam pra v1.1+ (seção 10)."""
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication, QHBoxLayout, QLabel, QMainWindow, QPushButton, QVBoxLayout, QWidget,
 )
 
 from siren.integrations import echo_client
+from siren.integrations.loki_events import PublicadorPlayback
 from siren.playback import orquestrador
 from siren.playback.player import Player
 from siren.ui import mode_switch
@@ -29,8 +30,9 @@ class MainWindow(QMainWindow):
         self.resize(360, 160)
 
         self._player = Player()
+        self._eventos_loki = PublicadorPlayback()
         self._player.observar_fim_de_faixa(self.sinal_fim_de_faixa.emit)
-        self.sinal_fim_de_faixa.connect(self._tocar_proxima)
+        self.sinal_fim_de_faixa.connect(self._ao_fim_de_faixa)
         self._faixa_atual = None  # {"artista", "titulo"}
         self._historico_sessao = []  # pilha simples de faixas já tocadas NESTA sessão, sem persistência (histórico local de verdade é v1.4)
         self._excluidos_sessao = []  # "artista::titulo" já sugeridos - evita repetição dentro da mesma sessão
@@ -46,7 +48,7 @@ class MainWindow(QMainWindow):
         self._botao_like = QPushButton("❤️")
 
         # 👍/👎 são mutuamente exclusivos e refletem o voto atual (seção 4 do
-        # PLANO_SIREN.md - sinal de treino do ECHO, não favorito local do
+        # docs/PLANO_SIREN.md - sinal de treino do ECHO, não favorito local do
         # SIREN). NUNCA usar QButtonGroup(exclusive=True) aqui - ele recusa
         # desmarcar programaticamente o único botão marcado (gotcha real já
         # documentado no ecossistema, ver memória do LOKI/Gesture Wheel);
@@ -79,6 +81,21 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
 
         self._definir_controles_habilitados(False)
+        self._timer_eventos = QTimer(self)
+        self._timer_eventos.setInterval(1000)
+        self._timer_eventos.timeout.connect(self._publicar_progresso)
+        self._timer_eventos.start()
+
+    def _publicar_progresso(self):
+        if self._faixa_atual:
+            self._eventos_loki.progresso(
+                self._player.posicao_segundos,
+                self._player.duracao_segundos,
+            )
+
+    def _ao_fim_de_faixa(self):
+        self._eventos_loki.faixa_encerrada("fim")
+        self._tocar_proxima()
 
     def _definir_controles_habilitados(self, habilitado):
         for botao in (self._botao_dislike, self._botao_anterior, self._botao_play_pause, self._botao_proximo, self._botao_like):
@@ -122,6 +139,12 @@ class MainWindow(QMainWindow):
         self._excluidos_sessao.append(self._id_faixa(faixa))
         self._label_faixa.setText(f"{faixa['titulo']} - {faixa['artista']}")
         self._botao_play_pause.setText("⏸")
+        self._eventos_loki.faixa_iniciada(
+            faixa["titulo"],
+            faixa["artista"],
+            origem="caos",
+            duracao=self._player.duracao_segundos,
+        )
         self._definir_controles_habilitados(True)
         # Reflete um voto anterior dessa faixa (ex.: já avaliada numa sessão
         # passada) - se o ECHO estiver fora do ar, `obter_voto` devolve None
@@ -131,6 +154,7 @@ class MainWindow(QMainWindow):
     def _alternar_play_pause(self):
         self._player.alternar_pausa()
         self._botao_play_pause.setText("▶" if self._player.pausado else "⏸")
+        self._eventos_loki.pausa_alterada(self._player.pausado)
 
     def _atualizar_botoes_voto(self, voto):
         """`voto`: "positivo"/"negativo"/None - marca só o botão correspondente,
@@ -156,6 +180,7 @@ class MainWindow(QMainWindow):
         mode_switch.trocar_modo(QApplication.instance(), self, "full")
 
     def closeEvent(self, event):
+        self._eventos_loki.faixa_encerrada("player_fechado")
         self._player.encerrar()
         super().closeEvent(event)
 
