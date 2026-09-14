@@ -9,7 +9,7 @@ nova.
 `modo_ui` é a decisão mais importante daqui - "lite" (janela simples de
 sempre, pra rodar de lado com jogo/programa pesado sem competir por CPU/GPU)
 ou "full" (biblioteca/playlists/fila/letras, vidro fosco tipo Argus). Ver
-PLANO_SIREN.md, seção "Modo Leve x Modo Completo"."""
+docs/PLANO_SIREN.md, seção "Modo Leve x Modo Completo"."""
 import os
 import json
 

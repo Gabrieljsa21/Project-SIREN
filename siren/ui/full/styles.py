@@ -4,15 +4,15 @@ como artifact ("SIREN"), adaptada pra vidro fosco: painéis usam fundo
 translúcido (rgba com alpha baixo) pra deixar o Acrylic aparecer por trás,
 em vez de cor sólida como uma janela comum."""
 
-COR_FUNDO = "#101a2c"
-COR_TEXTO = "#eef1fb"
-COR_TEXTO_FRACO = "#aab3d6"
+COR_FUNDO = "#090a0d"
+COR_TEXTO = "#f4f4f5"
+COR_TEXTO_FRACO = "#a7a7a7"
 COR_ACCENT = "#e7b95d"
 COR_ACCENT_ESCURO = "#c99b45"
 COR_ACCENT_TINTA = "#3a2a0c"
-COR_BORDA = "rgba(255, 255, 255, 28)"
-COR_PAINEL = "rgba(20, 30, 55, 150)"
-COR_PAINEL_2 = "rgba(38, 54, 94, 170)"
+COR_BORDA = "rgba(255, 255, 255, 0.09)"
+COR_PAINEL = "rgba(18, 18, 18, 0.94)"
+COR_PAINEL_2 = "rgba(40, 40, 40, 0.94)"
 COR_LIKE = "#ea6b86"
 COR_DISLIKE = "#7784ab"
 
@@ -53,6 +53,8 @@ QWidget {{
 #barraTituloBotaoFechar:hover {{ background: {COR_LIKE}; color: white; }}
 
 #sidebar {{ background: {COR_PAINEL}; border-right: 1px solid {COR_BORDA}; }}
+#topBar {{ background: rgba(10, 10, 10, 0.92); }}
+#homeBody {{ background: rgba(10, 10, 10, 0.72); }}
 #logoSiren {{ color: {COR_TEXTO}; font-size: 21px; font-weight: 700; font-style: italic; }}
 #echoPill {{
     background: {COR_PAINEL_2}; border: 1px solid {COR_BORDA}; border-radius: 9px;
@@ -64,6 +66,20 @@ QWidget {{
 }}
 #navBotao:hover {{ background: rgba(255,255,255,18); color: {COR_TEXTO}; }}
 #navBotao:checked {{ background: {COR_PAINEL_2}; color: {COR_TEXTO}; }}
+#tituloBiblioteca {{ color: {COR_TEXTO}; font-size: 15px; font-weight: 700; }}
+#botaoBiblioteca, #botaoCircular {{
+    background: rgba(0,0,0,0.55); border: none; border-radius: 15px;
+    color: {COR_TEXTO_FRACO}; font-size: 18px; font-weight: 700;
+}}
+#botaoBiblioteca:hover, #botaoCircular:hover {{ color: {COR_TEXTO}; background: {COR_PAINEL_2}; }}
+#buscaGlobal {{
+    background: {COR_PAINEL_2}; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 19px; padding: 9px 16px; color: {COR_TEXTO};
+    selection-background-color: {COR_ACCENT_ESCURO};
+}}
+#buscaGlobal:focus {{ border-color: rgba(255,255,255,0.65); }}
+#listaBiblioteca::item {{ padding: 10px 8px; min-height: 38px; color: {COR_TEXTO_FRACO}; }}
+#listaBiblioteca::item:hover {{ color: {COR_TEXTO}; background: rgba(255,255,255,0.07); }}
 
 QScrollArea {{ border: none; background: transparent; }}
 
@@ -73,6 +89,12 @@ QListWidget {{ outline: none; background: transparent; border: none; }}
 QListWidget::item {{ padding: 8px; border-radius: 8px; }}
 QListWidget::item:hover {{ background: rgba(255,255,255,18); }}
 QListWidget::item:selected {{ background: {COR_PAINEL_2}; color: {COR_TEXTO}; }}
+#prateleira {{ background: rgba(0,0,0,0.05); }}
+#prateleira::item {{
+    background: rgba(255,255,255,0.07); border-radius: 7px; padding: 12px;
+    margin: 3px; color: {COR_TEXTO}; font-weight: 650;
+}}
+#prateleira::item:hover {{ background: rgba(255,255,255,0.13); }}
 
 QPushButton#botaoAccent {{
     background: {COR_ACCENT}; color: {COR_ACCENT_TINTA}; border: none;
@@ -103,6 +125,12 @@ QPushButton#botaoLike:checked {{ color: {COR_LIKE}; border-color: {COR_LIKE}; }}
 QPushButton#botaoDislike:checked {{ color: {COR_DISLIKE}; border-color: {COR_DISLIKE}; }}
 
 #playerBar {{ background: {COR_PAINEL}; border-top: 1px solid {COR_BORDA}; }}
+#capaPlayer {{ background: {COR_PAINEL_2}; border-radius: 5px; color: {COR_TEXTO_FRACO}; font-size: 20px; }}
+#botaoPlayerTexto {{ background: rgba(0,0,0,0.004); border: none; color: {COR_TEXTO_FRACO}; padding: 5px; }}
+#botaoPlayerTexto:hover {{ color: {COR_TEXTO}; }}
+#tempoPlayer {{ color: {COR_TEXTO_FRACO}; font-size: 10px; }}
+#tituloHome {{ font-size: 28px; font-weight: 750; }}
+#tituloSecao {{ font-size: 20px; font-weight: 750; margin-top: 8px; }}
 #tituloView {{ font-size: 20px; font-weight: 700; }}
 #legendaView {{ color: {COR_TEXTO_FRACO}; font-size: 12px; }}
 """

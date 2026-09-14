@@ -28,3 +28,22 @@ class ImportEchoAprovadasWorker(QThread):
 
     def run(self):
         self.concluido.emit(echo_client.obter_aprovados())
+
+
+class ImportEchoVotesWorker(QThread):
+    """Sincroniza as duas coleções de voto sem bloquear a interface."""
+
+    concluido = Signal(list, list)
+
+    def run(self):
+        self.concluido.emit(
+            echo_client.obter_aprovados(),
+            echo_client.obter_desaprovados(),
+        )
+
+
+class EchoStatusWorker(QThread):
+    concluido = Signal(bool)
+
+    def run(self):
+        self.concluido.emit(echo_client.esta_disponivel())

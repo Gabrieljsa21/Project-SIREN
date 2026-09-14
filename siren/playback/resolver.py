@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Playback Resolver mínimo (PLANO_SIREN.md, seção 7) - artista+título ->
+"""Playback Resolver mínimo (docs/PLANO_SIREN.md, seção 7) - artista+título ->
 yt-dlp -> 1 resultado -> ResolvedStream. Sem múltiplos provedores, cache ou
 fallback nesta fase; o contrato (`ResolvedStream`) é o mesmo conceito usado
 pelo Project ERIS (`eris/core/musica.py::_buscar_no_youtube`), cada
@@ -82,6 +82,50 @@ def resolver_stream(titulo, artista):
         print(f"[SIREN] Falha ao resolver stream (\"{artista} - {titulo}\"): {e}")
         return None
     return extrair_resolved_stream(info, titulo, artista)
+
+
+def extrair_resultados_busca(info):
+    """Converte a resposta de ``ytsearch`` em faixas exibíveis na Busca.
+
+    A reprodução resolve o stream novamente só quando o usuário escolhe um
+    resultado; a pesquisa não abre nem baixa áudio antecipadamente.
+    """
+    resultados = []
+    for entrada in (info or {}).get("entries") or []:
+        if not entrada or not entrada.get("title"):
+            continue
+        artista = (
+            entrada.get("artist")
+            or entrada.get("uploader")
+            or entrada.get("channel")
+            or "Artista desconhecido"
+        )
+        resultados.append({
+            "titulo": entrada["title"],
+            "artista": artista,
+            "duracao": entrada.get("duration"),
+        })
+    return resultados
+
+
+def buscar_faixas(texto, limite=5):
+    """Pesquisa faixas diretamente no YouTube, sem depender do ECHO."""
+    texto = texto.strip()
+    if not texto:
+        return []
+    limite = max(1, min(20, int(limite)))
+    opcoes = dict(OPCOES_BASE)
+    opcoes.update({"extract_flat": "in_playlist", "skip_download": True})
+    cookies = os.getenv("YOUTUBE_COOKIES_FILE")
+    if cookies and os.path.exists(cookies):
+        opcoes["cookiefile"] = cookies
+    try:
+        with yt_dlp.YoutubeDL(opcoes) as ydl:
+            info = ydl.extract_info(f"ytsearch{limite}:{texto}", download=False)
+    except Exception as e:
+        print(f"[SIREN] Falha na busca (\"{texto}\"): {e}")
+        return []
+    return extrair_resultados_busca(info)
 
 
 def stream_expirado(resolved_stream):

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Histórico local de reprodução do SIREN (PLANO_SIREN.md, seção 3/10) -
+"""Histórico local de reprodução do SIREN (docs/PLANO_SIREN.md, seção 3/10) -
 registra o que REALMENTE tocou no player, independente do ECHO estar no ar.
 
 Não confundir com `Project-ECHO/echo/core/historico.py` (outro repositório):

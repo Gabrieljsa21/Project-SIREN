@@ -31,14 +31,14 @@ class ViewPlaylists(QWidget):
         botao_nova = QPushButton("+ Nova playlist")
         botao_nova.setObjectName("botaoSecundario")
         botao_nova.clicked.connect(self._criar_playlist)
-        botao_importar_youtube = QPushButton("Importar do YouTube")
-        botao_importar_youtube.setObjectName("botaoSecundario")
-        botao_importar_youtube.clicked.connect(self._importar_do_youtube)
+        self._botao_importar_youtube = QPushButton("Importar do YouTube")
+        self._botao_importar_youtube.setObjectName("botaoSecundario")
+        self._botao_importar_youtube.clicked.connect(self._importar_do_youtube)
         botao_importar_texto = QPushButton("Colar playlist (texto)")
         botao_importar_texto.setObjectName("botaoSecundario")
         botao_importar_texto.clicked.connect(self._importar_de_texto)
         linha_topo.addWidget(botao_nova)
-        linha_topo.addWidget(botao_importar_youtube)
+        linha_topo.addWidget(self._botao_importar_youtube)
         linha_topo.addWidget(botao_importar_texto)
         linha_topo.addStretch()
         self._label_status_importacao = QLabel("")
@@ -81,6 +81,9 @@ class ViewPlaylists(QWidget):
             self.atualizar()
 
     def _importar_do_youtube(self):
+        if self._worker_importacao is not None and self._worker_importacao.isRunning():
+            self._label_status_importacao.setText("Uma playlist do YouTube já está sendo importada.")
+            return
         nome, ok = QInputDialog.getText(self, "Importar do YouTube", "Nome da nova playlist:")
         if not (ok and nome.strip()):
             return
@@ -90,9 +93,18 @@ class ViewPlaylists(QWidget):
 
         nome = nome.strip()
         self._label_status_importacao.setText(f"Importando \"{url.strip()}\"...")
+        self._botao_importar_youtube.setEnabled(False)
         self._worker_importacao = ImportYoutubeWorker(url.strip(), parent=self)
         self._worker_importacao.concluido.connect(lambda faixas: self._ao_concluir_importacao(nome, faixas))
+        self._worker_importacao.finished.connect(self._finalizar_importacao_youtube)
         self._worker_importacao.start()
+
+    def _finalizar_importacao_youtube(self):
+        worker = self._worker_importacao
+        self._worker_importacao = None
+        self._botao_importar_youtube.setEnabled(True)
+        if worker is not None:
+            worker.deleteLater()
 
     def _importar_de_texto(self):
         nome, ok = QInputDialog.getText(self, "Colar playlist", "Nome da nova playlist:")
@@ -119,7 +131,10 @@ class ViewPlaylists(QWidget):
         self.atualizar()
 
     def _abrir_playlist(self, item):
-        nome = item.data(Qt.UserRole)
+        self.abrir(item.data(Qt.UserRole))
+
+    def abrir(self, nome):
+        """Abre diretamente uma playlist escolhida na biblioteca lateral."""
         self._playlist_atual = nome
         self._painel_acoes.definir_origem_padrao(f"playlist:{nome}")
         self._rotulo_playlist_atual.setText(nome)

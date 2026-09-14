@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Guardrail 2 do PLANO_SIREN.md em teste: o SIREN nunca pode quebrar quando
+"""Guardrail 2 do docs/PLANO_SIREN.md em teste: o SIREN nunca pode quebrar quando
 o ECHO está fora do ar - toda função aqui devolve um valor usável (nunca
 levanta exceção) quando `_get`/`_post` falham."""
 from siren.integrations import echo_client

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""★ Favoritos do SIREN (PLANO_SIREN.md, seção 4) - guardar uma música pra
+"""★ Favoritos do SIREN (docs/PLANO_SIREN.md, seção 4) - guardar uma música pra
 achar de novo facilmente. Sinal de CONVENIÊNCIA do player, nunca chega no
 ECHO e nunca ajusta peso nenhum de perfil musical - isso é o ❤️/👎
 (`integrations/echo_client.py`), coisa BEM diferente de propósito."""

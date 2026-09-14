@@ -44,6 +44,10 @@ class Player:
     def definir_volume(self, volume_0_a_100):
         self._mpv.volume = max(0, min(100, volume_0_a_100))
 
+    def buscar_posicao(self, segundos):
+        """Move a faixa atual para uma posição absoluta em segundos."""
+        self._mpv.time_pos = max(0.0, float(segundos))
+
     @property
     def pausado(self):
         return bool(self._mpv.pause)
@@ -51,6 +55,10 @@ class Player:
     @property
     def posicao_segundos(self):
         return self._mpv.time_pos
+
+    @property
+    def duracao_segundos(self):
+        return self._mpv.duration
 
     def encerrar(self):
         self._mpv.terminate()

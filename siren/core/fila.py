@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Fila de reprodução do SIREN (PLANO_SIREN.md - "SIREN é dono de: fila
+"""Fila de reprodução do SIREN (docs/PLANO_SIREN.md - "SIREN é dono de: fila
 atual") - autoridade SEMPRE do SIREN, nunca do ECHO (ele só entra sugerindo
 QUEM adicionar, através de `integrations/echo_client.py`).
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Playlists do SIREN (PLANO_SIREN.md, seção 3/11) - criadas por você ou
+"""Playlists do SIREN (docs/PLANO_SIREN.md, seção 3/11) - criadas por você ou
 pelo próprio SIREN ("Descobertas do SIREN", ver `adicionar_a_descobertas`).
 Salvas localmente; o ECHO nunca guarda playlist nenhuma (só sugere quais
 faixas provavelmente combinam, nunca o que fica salvo de fato)."""
@@ -8,6 +8,12 @@ import json
 
 ARQUIVO_PLAYLISTS = "data/playlists.json"
 NOME_PLAYLIST_DESCOBERTAS = "Descobertas do SIREN"
+NOME_PLAYLIST_CURTIDAS = "Músicas Curtidas"
+NOME_PLAYLIST_NAO_CURTIDAS = "Não Curtidas"
+PLAYLISTS_DO_SISTEMA = {
+    NOME_PLAYLIST_CURTIDAS,
+    NOME_PLAYLIST_NAO_CURTIDAS,
+}
 
 
 def _track_id(titulo, artista):
@@ -54,6 +60,8 @@ def criar(nome):
 
 
 def renomear(nome_atual, nome_novo):
+    if nome_atual in PLAYLISTS_DO_SISTEMA or nome_novo in PLAYLISTS_DO_SISTEMA:
+        return False
     playlists = carregar()
     if nome_atual not in playlists or nome_novo in playlists:
         return False
@@ -63,6 +71,8 @@ def renomear(nome_atual, nome_novo):
 
 
 def excluir(nome):
+    if nome in PLAYLISTS_DO_SISTEMA:
+        return False
     playlists = carregar()
     if nome in playlists:
         del playlists[nome]
@@ -102,3 +112,15 @@ def adicionar_a_descobertas(titulo, artista):
     Descobertas/Redescobertas/Para Você) recebe ❤️ - só a UI sabe a origem
     da faixa que recebeu o voto, então a decisão de chamar isso é dela."""
     return adicionar_faixa(NOME_PLAYLIST_DESCOBERTAS, titulo, artista)
+
+
+def registrar_voto(titulo, artista, positivo):
+    """Mantém os votos em duas playlists especiais e mutuamente exclusivas.
+
+    Elas são persistidas no mesmo arquivo das playlists comuns para que toda
+    a UI possa tratá-las como coleções normais, mas não podem ser excluídas.
+    """
+    destino = NOME_PLAYLIST_CURTIDAS if positivo else NOME_PLAYLIST_NAO_CURTIDAS
+    oposta = NOME_PLAYLIST_NAO_CURTIDAS if positivo else NOME_PLAYLIST_CURTIDAS
+    remover_faixa(oposta, titulo, artista)
+    return adicionar_faixa(destino, titulo, artista)
