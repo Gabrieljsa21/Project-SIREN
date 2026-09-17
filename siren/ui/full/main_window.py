@@ -25,7 +25,9 @@ from siren.ui import mode_switch
 from siren.ui.full import styles
 from siren.ui.full.import_worker import EchoStatusWorker, ImportEchoVotesWorker
 from siren.ui.full.views.busca import ViewBusca
+from siren.ui.full.views.descoberta import ViewDescoberta
 from siren.ui.full.views.fila import ViewFila
+from siren.ui.full.views.historico import ViewHistorico
 from siren.ui.full.views.inicio import ViewInicio
 from siren.ui.full.views.playlists import ViewPlaylists
 from siren.ui.full.views.tocando_agora import ViewTocandoAgora
@@ -150,6 +152,18 @@ class FullWindow(QWidget):
         self._botao_home.setCheckable(True)
         self._botao_home.clicked.connect(lambda: self._mudar_view("home"))
         layout.addWidget(self._botao_home)
+
+        self._botao_descoberta = QPushButton("🔍  Descoberta")
+        self._botao_descoberta.setObjectName("navBotao")
+        self._botao_descoberta.setCheckable(True)
+        self._botao_descoberta.clicked.connect(lambda: self._mudar_view("descoberta"))
+        layout.addWidget(self._botao_descoberta)
+
+        self._botao_historico = QPushButton("🕐  Histórico")
+        self._botao_historico.setObjectName("navBotao")
+        self._botao_historico.setCheckable(True)
+        self._botao_historico.clicked.connect(lambda: self._mudar_view("historico"))
+        layout.addWidget(self._botao_historico)
         layout.addSpacing(18)
 
         linha_biblioteca = QHBoxLayout()
@@ -288,6 +302,8 @@ class FullWindow(QWidget):
             "playlists": ViewPlaylists(ao_tocar=self._tocar_faixa, fila=self._fila),
             "queue": ViewFila(self._fila, ao_tocar=self._tocar_faixa),
             "search": ViewBusca(ao_tocar=self._tocar_faixa),
+            "descoberta": ViewDescoberta(ao_tocar=self._tocar_faixa),
+            "historico": ViewHistorico(ao_tocar=self._tocar_faixa, fila=self._fila),
         }
 
     def _mudar_view(self, chave, atualizar=True):
@@ -295,6 +311,8 @@ class FullWindow(QWidget):
         if atualizar:
             self._views[chave].atualizar()
         self._botao_home.setChecked(chave == "home")
+        self._botao_descoberta.setChecked(chave == "descoberta")
+        self._botao_historico.setChecked(chave == "historico")
         if chave == "home":
             self._atualizar_sidebar_playlists()
         self._atualizar_pill_echo()
