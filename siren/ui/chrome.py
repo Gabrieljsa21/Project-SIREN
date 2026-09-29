@@ -9,18 +9,32 @@ Mesmo padrão visual do Argus, adaptado: SIREN é uma janela de app comum
 O Modo Leve NUNCA usa nada deste módulo - continua com a janela padrão do
 Qt (barra de título nativa, sem Acrylic), exatamente pra pesar o mínimo
 possível."""
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from siren.ui import win32_dwm
+from siren.ui.full import icones
 
 
-def configurar_janela_vidro_fosco(widget, cor_hex, alpha=130, acrylic_ativado=True):
-    """Sem borda + translúcida + cantos nativos + Acrylic. Devolve um dict
-    dizendo o que realmente aplicou (`cantos_ok`/`acrylic_ok`) - quem chama
-    decide se ainda precisa reforçar um fundo sólido (ex.: Windows mais
-    antigo, sem suporte nenhum a isso)."""
+def configurar_janela_vidro_fosco(widget, cor_hex, alpha=130, acrylic_ativado=True, translucida=True):
+    """Sem borda + cantos nativos + (se `translucida`) fundo translúcido com
+    Acrylic. Devolve um dict dizendo o que realmente aplicou
+    (`cantos_ok`/`acrylic_ok`) - quem chama decide se ainda precisa reforçar
+    um fundo sólido (ex.: Windows mais antigo, sem suporte nenhum a isso).
+
+    `translucida=False` (2026-09-25): janela opaca comum, só sem borda e com
+    cantos arredondados. Medido no Modo Completo: numa janela translúcida o
+    Windows reenvia a janela INTEIRA ao compositor a cada atualização (~8 ms
+    fixos, por menor que seja a área), e os efeitos animados custavam ~83%
+    de um núcleo contra ~16% com a janela opaca."""
     widget.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+    if not translucida:
+        widget.setAttribute(Qt.WA_StyledBackground, True)
+        widget.winId()
+        cantos_ok = win32_dwm.aplicar_cantos_redondos(widget)
+        win32_dwm.remover_cor_borda(widget)
+        return {"cantos_ok": cantos_ok, "acrylic_ok": False}
     widget.setAttribute(Qt.WA_TranslucentBackground)
     # 🔥 Sem isso, a própria janela de topo (QWidget puro) nunca pinta a
     # regra genérica `QWidget { background: ... }` do QSS - qualquer pedaço
@@ -61,25 +75,34 @@ class BarraTitulo(QWidget):
 
         rotulo = QLabel(titulo)
         rotulo.setObjectName("barraTituloTexto")
-
-        botao_min = QPushButton("—")
-        botao_min.setObjectName("barraTituloBotao")
-        botao_min.setFixedSize(30, 26)
-        botao_min.setCursor(Qt.PointingHandCursor)
-        botao_min.clicked.connect(janela.showMinimized)
-
-        botao_fechar = QPushButton("✕")
-        botao_fechar.setObjectName("barraTituloBotaoFechar")
-        botao_fechar.setFixedSize(30, 26)
-        botao_fechar.setCursor(Qt.PointingHandCursor)
-        botao_fechar.clicked.connect(janela.close)
+        fonte = rotulo.font()
+        fonte.setLetterSpacing(QFont.AbsoluteSpacing, 5)
+        rotulo.setFont(fonte)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 0, 8, 0)
+        layout.setContentsMargins(16, 0, 8, 0)
+        layout.setSpacing(2)
         layout.addWidget(rotulo)
         layout.addStretch()
-        layout.addWidget(botao_min)
-        layout.addWidget(botao_fechar)
+        for nome_icone, nome_objeto, acao in (
+            ("minimizar", "barraTituloBotao", janela.showMinimized),
+            ("maximizar", "barraTituloBotao", self._alternar_maximizado),
+            ("fechar", "barraTituloBotaoFechar", janela.close),
+        ):
+            botao = QPushButton()
+            botao.setObjectName(nome_objeto)
+            botao.setIcon(icones.icone(nome_icone, "#c3cbe0", 16, espessura=1.6))
+            botao.setIconSize(QSize(15, 15))
+            botao.setFixedSize(40, 30)
+            botao.setCursor(Qt.PointingHandCursor)
+            botao.clicked.connect(acao)
+            layout.addWidget(botao)
+
+    def _alternar_maximizado(self):
+        if self._janela.isMaximized():
+            self._janela.showNormal()
+        else:
+            self._janela.showMaximized()
 
     def mousePressEvent(self, evento):
         """Arrastar via `startSystemMove()` (Qt 5.15+/6, nativo do SO) - em
@@ -99,7 +122,4 @@ class BarraTitulo(QWidget):
             evento.accept()
 
     def mouseDoubleClickEvent(self, evento):
-        if self._janela.isMaximized():
-            self._janela.showNormal()
-        else:
-            self._janela.showMaximized()
+        self._alternar_maximizado()

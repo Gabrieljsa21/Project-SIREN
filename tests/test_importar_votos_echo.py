@@ -4,7 +4,7 @@ from siren.core import importar_votos_echo
 from siren.core import playlists as playlists_mod
 
 
-def test_importa_favoritando_e_adicionando_a_descobertas():
+def test_importa_favoritando_e_adicionando_as_curtidas():
     aprovadas = [
         {"titulo": "Doomsday", "artista": "MF DOOM"},
         {"titulo": "Rust and Velvet", "artista": "Nine Grain"},
@@ -13,11 +13,10 @@ def test_importa_favoritando_e_adicionando_a_descobertas():
     assert novas == 2
     assert favoritos_mod.esta_favoritada("Doomsday", "MF DOOM")
     assert favoritos_mod.esta_favoritada("Rust and Velvet", "Nine Grain")
-    faixas_descobertas = playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_DESCOBERTAS)
     faixas_curtidas = playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_CURTIDAS)
-    assert {"titulo": "Doomsday", "artista": "MF DOOM"} in faixas_descobertas
-    assert {"titulo": "Rust and Velvet", "artista": "Nine Grain"} in faixas_descobertas
     assert {"titulo": "Doomsday", "artista": "MF DOOM"} in faixas_curtidas
+    assert {"titulo": "Rust and Velvet", "artista": "Nine Grain"} in faixas_curtidas
+    assert playlists_mod.NOME_LEGADO_DESCOBERTAS not in [p["nome"] for p in playlists_mod.listar()]
 
 
 def test_importar_de_novo_nao_conta_como_nova_nem_duplica():
@@ -26,7 +25,7 @@ def test_importar_de_novo_nao_conta_como_nova_nem_duplica():
     novas_segunda_vez = importar_votos_echo.importar_aprovadas(aprovadas)
     assert novas_segunda_vez == 0
     assert len(favoritos_mod.carregar()) == 1
-    assert len(playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_DESCOBERTAS)) == 1
+    assert len(playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_CURTIDAS)) == 1
 
 
 def test_lista_vazia_nao_faz_nada():

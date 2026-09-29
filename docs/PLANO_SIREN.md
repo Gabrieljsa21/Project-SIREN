@@ -186,10 +186,13 @@ projeto"): o mesmo motor de reprodução (MPV + Playback Resolver +
 implementações de player.
 
 - **Modo Leve** (`siren/ui/main_window.py`, `--lite`, padrão de fábrica) -
-  janela simples, sem Acrylic/vidro fosco, sem telas extras. Existe
-  especificamente pra rodar de lado com jogo/programa pesado sem competir
-  por CPU/GPU - qualquer efeito visual a mais aqui é regressão, não
-  melhoria.
+  miniplayer no estilo do Spotify (2026-09-26): janela pequena, sem borda,
+  sempre por cima, com a capa no centro; os controles aparecem com o mouse
+  sobre a capa e o volume com o mouse sobre o botão de volume; embaixo,
+  tempo, título, artista e o "+" de curtir. Sem vidro fosco, sem animação
+  contínua e sem telas extras. Existe especificamente pra rodar de lado com
+  jogo/programa pesado sem competir por CPU/GPU - qualquer efeito visual a
+  mais aqui é regressão, não melhoria.
 - **Modo Completo** (`siren/ui/full/`, `--full`) - vidro fosco (Acrylic)
   igual ao Argus (`ui/win32_dwm.py`, mesmo `ctypes` puro já validado lá,
   sem a função de Mica que o Argus testou e o usuário rejeitou). Segue a
@@ -200,6 +203,16 @@ implementações de player.
   atualizadas automaticamente pelos votos ❤️/👎 e sincronizadas com o ECHO.
 - `core/config.py::modo_ui` decide qual abre por padrão; `--lite`/`--full`
   sobrescreve na hora sem mexer na configuração salva.
+- **Um controlador só** (`playback/controlador.py`, 2026-09-26): fila, Caos
+  com fila, aleatório/repetir, votos, capa, retomar a última faixa e
+  eventos pro LOKI ficam num `QObject` sem interface; as duas janelas só
+  chamam os métodos e reagem aos sinais. Antes a lógica vivia dentro da
+  janela do Completo e o Leve tinha uma cópia mais pobre.
+- **Troca de modo sem parar a música** (`ui/mode_switch.py` +
+  `core/sessao.py`): tocando, a janela que sai segue tocando e grava a
+  posição várias vezes por segundo; a nova carrega o áudio, começa na
+  posição mais recente e avisa por `data/troca_de_modo.json`; só então a
+  antiga fecha. Se a nova não abrir em 30 s, a música continua na antiga.
 
 > **Nenhuma feature de peso (Acrylic, biblioteca completa, fila, letras
 > sincronizadas) deve ser adicionada ao Modo Leve.** Ele existe pra pesar o

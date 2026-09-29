@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """Playlists do SIREN (docs/PLANO_SIREN.md, seção 3/11) - criadas por você ou
-pelo próprio SIREN ("Descobertas do SIREN", ver `adicionar_a_descobertas`).
+pelo próprio SIREN a partir dos votos (Músicas Curtidas/Não Curtidas).
 Salvas localmente; o ECHO nunca guarda playlist nenhuma (só sugere quais
 faixas provavelmente combinam, nunca o que fica salvo de fato)."""
 import os
 import json
 
 ARQUIVO_PLAYLISTS = "data/playlists.json"
-NOME_PLAYLIST_DESCOBERTAS = "Descobertas do SIREN"
+# Coleção automática removida em 2026-09-25 (era um subconjunto de Músicas
+# Curtidas: só as curtidas vindas do ECHO) - o nome fica só pra
+# `remover_descobertas_legada` limpar o dado antigo.
+NOME_LEGADO_DESCOBERTAS = "Descobertas do SIREN"
 NOME_PLAYLIST_CURTIDAS = "Músicas Curtidas"
 NOME_PLAYLIST_NAO_CURTIDAS = "Não Curtidas"
 PLAYLISTS_DO_SISTEMA = {
@@ -105,13 +108,16 @@ def remover_faixa(nome, titulo, artista):
     return playlists[nome]
 
 
-def adicionar_a_descobertas(titulo, artista):
-    """Playlist automática (seção 11 do ECHO_SPEC original, adaptada pro
-    SIREN - quem guarda a playlist agora é o SIREN, nunca o ECHO). Chamada
-    pela UI toda vez que uma faixa de origem "descoberta" (Caos/Em Alta/
-    Descobertas/Redescobertas/Para Você) recebe ❤️ - só a UI sabe a origem
-    da faixa que recebeu o voto, então a decisão de chamar isso é dela."""
-    return adicionar_faixa(NOME_PLAYLIST_DESCOBERTAS, titulo, artista)
+def remover_descobertas_legada():
+    """Apaga a antiga playlist automática "Descobertas do SIREN", se ainda
+    existir no arquivo. Toda faixa dela já estava em Músicas Curtidas (só
+    entrava lá quem recebia ❤️), então nada se perde. Idempotente."""
+    playlists = carregar()
+    if NOME_LEGADO_DESCOBERTAS in playlists:
+        del playlists[NOME_LEGADO_DESCOBERTAS]
+        _salvar(playlists)
+        return True
+    return False
 
 
 def registrar_voto(titulo, artista, positivo):

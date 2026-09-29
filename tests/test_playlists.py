@@ -43,11 +43,12 @@ def test_excluir():
     assert playlists_mod.listar() == []
 
 
-def test_adicionar_a_descobertas():
-    playlists_mod.adicionar_a_descobertas("Doomsday", "MF DOOM")
-    assert playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_DESCOBERTAS) == [
-        {"titulo": "Doomsday", "artista": "MF DOOM"}
-    ]
+def test_remover_descobertas_legada():
+    playlists_mod.adicionar_faixa(playlists_mod.NOME_LEGADO_DESCOBERTAS, "Doomsday", "MF DOOM")
+    playlists_mod.criar("Treino")
+    assert playlists_mod.remover_descobertas_legada() is True
+    assert [p["nome"] for p in playlists_mod.listar()] == ["Treino"]
+    assert playlists_mod.remover_descobertas_legada() is False
 
 
 def test_votos_viram_playlists_mutuamente_exclusivas():
