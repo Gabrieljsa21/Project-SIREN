@@ -11,8 +11,10 @@ Player de música para desktop com dois modos de interface, biblioteca, playlist
 - reprodução com MPV;
 - busca própria e resolução de áudio com yt-dlp;
 - barra de progresso clicável para avançar ou voltar na faixa;
-- modo Leve para gastar poucos recursos;
-- modo Completo com biblioteca e controles extras;
+- modo Leve: miniplayer pequeno, sempre por cima, que gasta poucos recursos;
+- modo Completo com biblioteca, fila, artistas e controles extras;
+- troca entre os modos sem parar a música, e a última faixa volta pausada ao reabrir;
+- teclas multimídia do teclado e painel de mídia do Windows (título, artista e capa);
 - favoritos, playlists, fila e histórico locais;
 - letras sincronizadas e download para uso offline.
 
@@ -53,7 +55,7 @@ uv run siren --lite
 uv run siren --full
 ```
 
-O modo padrão fica em `data/config.json`. Use `iniciar_siren_oculto.vbs` para abrir sem terminal visível.
+O modo padrão fica em `data/config.json`. Use `iniciar_siren_oculto.vbs` para abrir sem terminal visível. Os dois modos trocam entre si pelo botão da lua (Completo) ou de expandir (Leve), e a música continua tocando durante a troca.
 
 ## Integrações com outros projetos
 

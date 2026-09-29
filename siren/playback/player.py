@@ -30,10 +30,27 @@ class Player:
         "Próximo" a cada faixa."""
         self._callback_fim_de_faixa = callback
 
-    def tocar(self, resolved_stream):
+    def tocar(self, resolved_stream, pausado=False, inicio=None):
         """Recebe um `ResolvedStream` já resolvido (ver `playback/resolver.py`)
-        - este módulo nunca resolve URL sozinho, só reproduz."""
-        self._mpv.play(resolved_stream.url)
+        - este módulo nunca resolve URL sozinho, só reproduz.
+
+        `pausado`/`inicio` (2026-09-26): retomar a última faixa ao reabrir o
+        SIREN, carregada e pausada na posição salva. A pausa é sempre
+        definida explicitamente: o MPV mantém `pause` entre arquivos, e sem
+        isso a próxima faixa depois de uma retomada pausada também começaria
+        pausada."""
+        self._mpv.pause = bool(pausado)
+        if inicio:
+            self._mpv.loadfile(resolved_stream.url, start=f"{float(inicio):.1f}")
+        else:
+            self._mpv.play(resolved_stream.url)
+
+    def definir_repetir_faixa(self, ligado):
+        """Botão Repetir no modo "esta música" (2026-09-26): o próprio MPV
+        recomeça o arquivo ao chegar no fim (`loop-file`), sem gerar o
+        evento de fim de faixa - então o Caos/fila não avança sozinho. O
+        "próximo" manual continua funcionando (carrega outro arquivo)."""
+        self._mpv.loop_file = "inf" if ligado else "no"
 
     def alternar_pausa(self):
         self._mpv.pause = not self._mpv.pause

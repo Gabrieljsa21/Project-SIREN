@@ -9,8 +9,6 @@
   iniciado.
 ## Prioridade baixa
 
-- **Mini-player + atalhos multimídia do Windows** (v1.2 do roadmap,
-  SMTC/`Qt.Key_MediaPlay` etc.) - Complexidade: média. Status: não iniciado.
 - **Resolver avançado + múltiplas fontes + cache/fallback** (v2 do roadmap)
   - só faz sentido depois que o resto estiver estável. Status: não
   iniciado.

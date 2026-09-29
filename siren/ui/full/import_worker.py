@@ -21,8 +21,8 @@ class ImportYoutubeWorker(QThread):
 
 class ImportEchoAprovadasWorker(QThread):
     """Busca as faixas com 👍 do ECHO (mesmo discord_user_id que o Modo
-    Música do ERIS usa) - só busca, quem aplica (favoritar + playlist
-    Descobertas) é `core/importar_votos_echo.py`, chamado por quem conecta
+    Música do ERIS usa) - só busca, quem aplica (favoritar + Músicas
+    Curtidas) é `core/importar_votos_echo.py`, chamado por quem conecta
     esse sinal."""
     concluido = Signal(list)  # lista de entradas do ECHO (vazia se o ECHO estiver fora do ar)
 

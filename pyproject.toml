@@ -9,6 +9,11 @@ dependencies = [
     "yt-dlp>=2024.8.6",
     "requests>=2.31",
     "python-dotenv",
+    "winrt-runtime>=3.2.1",
+    "winrt-windows-media>=3.2.1",
+    "winrt-windows-media-playback>=3.2.1",
+    "winrt-windows-foundation>=3.2.1",
+    "winrt-windows-storage-streams>=3.2.1",
 ]
 
 [project.optional-dependencies]

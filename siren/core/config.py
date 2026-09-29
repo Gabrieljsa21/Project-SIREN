@@ -19,6 +19,33 @@ PADRAO = {
     "modo_ui": "lite",
     "pasta_downloads": "data/downloads",
     "acrylic_ativado": True,
+    # Modo Completo como janela translúcida (vidro fosco real do Windows por
+    # trás). Desligado por padrão desde 2026-09-25: o fundo pintado pelo
+    # SIREN já é ~97% opaco (o Acrylic quase não aparecia), e a janela
+    # translúcida deixava cada quadro de animação ~5x mais caro. O "vidro"
+    # continua nos painéis translúcidos sobre o fundo. `acrylic_ativado` só
+    # tem efeito com esta chave ligada.
+    "janela_translucida": False,
+    # Colunas opcionais da tela Fila (menu "Colunas", 2026-09-26):
+    # "album", "origem", "adicionada_em", "duracao".
+    "fila_colunas": ["album", "duracao", "origem"],
+    # Botões Aleatório e Repetir do player (2026-09-26). "repetir":
+    # "desligado", "fila" (a faixa que termina volta pro fim da fila) ou
+    # "faixa" (repete a mesma música).
+    # Teclas multimídia do teclado + painel de mídia do Windows (SMTC,
+    # `integrations/midia_windows.py`, 2026-09-26).
+    "teclas_multimidia": True,
+    "aleatorio": False,
+    "repetir": "desligado",
+    # Gota d'água (anéis concêntricos) a cada clique no Modo Completo
+    # (2026-09-25). Os efeitos ligados à música (luar, reflexo) não
+    # dependem disto.
+    "efeitos_mouse_ativados": True,
+    # Efeitos contínuos do Modo Completo: reflexo da lua no mar da Home e
+    # cáusticas nas bordas. Só rodam com a janela em
+    # foco e música tocando (~11 atualizações/s, medido ~10-14% de UM núcleo
+    # nesse estado); desligável pra economizar ainda mais.
+    "efeitos_ambiente_ativados": True,
     "volume_inicial": 70,
     "youtube_cookies_file": "",
     "lyrics_ativado": True,

@@ -1,14 +1,30 @@
 # -*- coding: utf-8 -*-
+import unicodedata
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
+    QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QPushButton, QStackedWidget, QVBoxLayout, QWidget,
 )
 
 from siren.core import importador_texto
 from siren.core import playlists as playlists_mod
 from siren.ui.full.import_worker import ImportYoutubeWorker
+from siren.ui.full import icones, styles
 from siren.ui.full.widgets import PainelAcoesFaixa
+
+
+def _normalizar(texto):
+    """Sem acento e em minúsculas: "é" acha "e", "BEYONCÉ" acha "beyonce"."""
+    sem_acento = unicodedata.normalize("NFKD", texto or "")
+    return "".join(c for c in sem_acento if not unicodedata.combining(c)).lower()
+
+
+def faixa_combina(faixa, busca):
+    """Busca da tela de playlist (2026-09-26): todas as palavras digitadas
+    precisam aparecer no título ou no artista, em qualquer ordem."""
+    alvo = _normalizar(f"{faixa['titulo']} {faixa['artista']}")
+    return all(palavra in alvo for palavra in _normalizar(busca).split())
 
 
 class ViewPlaylists(QWidget):
@@ -57,10 +73,27 @@ class ViewPlaylists(QWidget):
         botao_voltar.clicked.connect(lambda: self._pilha.setCurrentIndex(0))
         self._rotulo_playlist_atual = QLabel("")
         self._rotulo_playlist_atual.setStyleSheet("font-weight: 700; font-size: 16px; margin-top: 8px;")
+        # Filtro das faixas (pedido do usuário, 2026-09-26) - vale pra
+        # qualquer playlist, inclusive Músicas Curtidas e Não Curtidas.
+        self._busca = QLineEdit()
+        self._busca.setObjectName("buscaGlobal")
+        self._busca.setPlaceholderText("Buscar nesta playlist (título ou artista)")
+        self._busca.setClearButtonEnabled(True)
+        self._busca.setFixedHeight(38)
+        self._busca.setMaximumWidth(420)
+        self._busca.addAction(icones.icone("busca", styles.COR_TEXTO, 16), QLineEdit.LeadingPosition)
+        self._busca.textChanged.connect(self._filtrar_faixas)
+        self._rotulo_resultado = QLabel("")
+        self._rotulo_resultado.setObjectName("legendaView")
         self._lista_faixas = QListWidget()
         self._lista_faixas.itemActivated.connect(self._tocar_faixa_selecionada)
         layout_detalhe.addWidget(botao_voltar)
         layout_detalhe.addWidget(self._rotulo_playlist_atual)
+        linha_busca = QHBoxLayout()
+        linha_busca.addWidget(self._busca)
+        linha_busca.addWidget(self._rotulo_resultado)
+        linha_busca.addStretch()
+        layout_detalhe.addLayout(linha_busca)
         layout_detalhe.addWidget(self._lista_faixas, stretch=1)
         self._painel_acoes = PainelAcoesFaixa(self._lista_faixas, fila=fila, origem_padrao="playlist")
         layout_detalhe.addWidget(self._painel_acoes)
@@ -143,7 +176,19 @@ class ViewPlaylists(QWidget):
             entrada = QListWidgetItem(f"{faixa['titulo']} - {faixa['artista']}")
             entrada.setData(Qt.UserRole, faixa)
             self._lista_faixas.addItem(entrada)
+        self._busca.clear()
+        self._filtrar_faixas("")
         self._pilha.setCurrentIndex(1)
+
+    def _filtrar_faixas(self, texto):
+        total = self._lista_faixas.count()
+        visiveis = 0
+        for indice in range(total):
+            item = self._lista_faixas.item(indice)
+            mostrar = faixa_combina(item.data(Qt.UserRole), texto)
+            item.setHidden(not mostrar)
+            visiveis += mostrar
+        self._rotulo_resultado.setText(f"{visiveis} de {total}" if texto.strip() else f"{total} faixas")
 
     def _tocar_faixa_selecionada(self, item):
         faixa = item.data(Qt.UserRole)

@@ -50,34 +50,45 @@ def esta_disponivel():
     return _get("/status") is not None
 
 
-def sugerir_semente(excluidos=None):
+def sugerir_semente(excluidos=None, penalidades_sessao=None):
     """`/radar/semente` - primeira sugestão de uma sessão, sem faixa de
     partida (mesmo endpoint que o `/caos` do ERIS usa). Devolve
     `{"artista", "titulo", ...}` ou `None` se o ECHO não respondeu ou não
     achou nada de qualidade."""
-    dados = _post("/radar/semente", {"discord_user_id": DONO_DISCORD_ID, "excluir": list(excluidos or [])})
+    dados = _post("/radar/semente", {
+        "discord_user_id": DONO_DISCORD_ID, "excluir": list(excluidos or []), "penalidades_sessao": penalidades_sessao,
+    })
     if dados is None:
         return None
     return dados.get("semente")
 
 
-def sugerir_proxima(artista_atual, titulo_atual, excluidos=None):
-    """`/radar/proxima` - continuação a partir da faixa tocando agora."""
+def sugerir_proxima(artista_atual, titulo_atual, excluidos=None, penalidades_sessao=None):
+    """`/radar/proxima` - continuação a partir da faixa tocando agora.
+
+    `penalidades_sessao` (`{"artista::nome": vezes}`, 2026-09-26): quantas
+    vezes cada artista já apareceu na sessão - o ECHO desconta do score pra
+    não emendar o mesmo artista várias vezes (o bônus de "mesmo artista da
+    faixa atual" se acumula quando a fila do Caos encadeia pedidos)."""
     dados = _post("/radar/proxima", {
         "discord_user_id": DONO_DISCORD_ID, "artista_atual": artista_atual, "titulo_atual": titulo_atual,
-        "excluir": list(excluidos or []),
+        "excluir": list(excluidos or []), "penalidades_sessao": penalidades_sessao,
     })
     if dados is None:
         return None
     return dados.get("proxima")
 
 
-def enviar_feedback(artista, titulo, feedback):
+def enviar_feedback(artista, titulo, feedback, abrir_prova=True):
     """`/radar/feedback_ao_vivo` - 👍/👎 (sinal de treino do ECHO, seção 4 do
     docs/PLANO_SIREN.md - NUNCA confundir com favoritar (★), que é local do
-    SIREN e não passa por aqui). `feedback`: "positivo" ou "negativo"."""
+    SIREN e não passa por aqui). `feedback`: "positivo" ou "negativo".
+
+    `abrir_prova=False` (importação de votos antigos, 2026-09-26): o 👎 só
+    reduz a nota do artista no ECHO, sem abrir a regra das 5 chances."""
     return _post("/radar/feedback_ao_vivo", {
         "discord_user_id": DONO_DISCORD_ID, "artista": artista, "titulo": titulo, "feedback": feedback,
+        "abrir_prova": abrir_prova,
     })
 
 
@@ -87,6 +98,34 @@ def obter_voto(artista, titulo):
     query = f"discord_user_id={DONO_DISCORD_ID}&titulo={urllib.parse.quote(titulo)}&artista={urllib.parse.quote(artista)}"
     dados = _get(f"/perfil/voto?{query}")
     return (dados or {}).get("voto")
+
+
+def obter_info_faixa(artista, titulo):
+    """`/faixa/info` (2026-09-26) - `{"album", "duracao"}` (segundos) pelo
+    Last.fm; `None` se o ECHO não respondeu."""
+    query = f"artista={urllib.parse.quote(artista)}&titulo={urllib.parse.quote(titulo)}"
+    dados = _get(f"/faixa/info?{query}")
+    if not dados or "erro" in dados:
+        return None
+    return {"album": dados.get("album"), "duracao": dados.get("duracao")}
+
+
+def obter_artista(nome):
+    """`/artista` (2026-09-26) - tela do artista: `{"nome", "nota",
+    "estado", "curtidas", "descurtidas", "populares": [...]}`; `None` se o
+    ECHO não respondeu."""
+    query = f"discord_user_id={DONO_DISCORD_ID}&nome={urllib.parse.quote(nome)}"
+    return _get(f"/artista?{query}")
+
+
+def obter_artistas():
+    """`/perfil/artistas` (2026-09-26) - nota, estado e votos de cada
+    artista; `None` se o ECHO não respondeu (a tela Artistas mostra só os
+    dados locais)."""
+    dados = _get(f"/perfil/artistas?discord_user_id={DONO_DISCORD_ID}")
+    if dados is None or "artistas" not in dados:
+        return None
+    return dados["artistas"]
 
 
 def obter_em_alta():
