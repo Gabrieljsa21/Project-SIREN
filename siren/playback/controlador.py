@@ -31,6 +31,7 @@ from siren.core import cache_faixas as cache_faixas_mod
 from siren.core import config as config_mod
 from siren.core import downloads as downloads_mod
 from siren.core import playlists as playlists_mod
+from siren.core.registro import registrar
 from siren.core import sessao as sessao_mod
 from siren.core.fila import Fila
 from siren.integrations import echo_client
@@ -39,8 +40,8 @@ from siren.playback import orquestrador
 from siren.playback import resolver as resolver_mod
 from siren.playback.resolver import ResolvedStream
 
-TAMANHO_FILA_CAOS = 5
-MINIMO_FILA_CAOS = 2
+TAMANHO_FILA_CAOS = 10
+MINIMO_FILA_CAOS = 4
 JANELA_DIVERSIDADE = 10  # últimas faixas (tocadas + na fila) que contam pra penalidade de artista repetido
 MODOS_REPETIR = ["desligado", "fila", "faixa"]
 INTERVALO_PROGRESSO_MS = 500
@@ -292,6 +293,7 @@ class ControladorReproducao(QObject):
         self._retomada_carregada_pausada = False
         resolvido = orquestrador.tocar_faixa(self.player, titulo, artista, origem=origem)
         if resolvido is None:
+            registrar(f"ERRO ao resolver no YouTube: {artista} - {titulo} ({origem})")
             self.mensagem.emit(f"Não consegui resolver \"{artista} - {titulo}\"")
             return False
         self.faixa_atual = {"titulo": titulo, "artista": artista, "origem": origem}
@@ -306,6 +308,7 @@ class ControladorReproducao(QObject):
         self._definir_voto(self.voto_local(titulo, artista))
         self._definir_tocando(True)
         self.progresso.emit(0.0, float(self.duracao))
+        registrar(f"TOCANDO {artista} - {titulo} | origem: {origem} | voto: {self.voto_local(titulo, artista) or '-'} | fila: {len(self.fila.listar())}")
         if origem == "caos":
             self._garantir_fila_caos()
         self._eventos_loki.faixa_iniciada(titulo, artista, origem=origem, duracao=resolvido.duration)
@@ -412,6 +415,7 @@ class ControladorReproducao(QObject):
     def votar_faixa(self, faixa, positivo):
         """Voto numa faixa qualquer (fila, tela do artista): ECHO + playlists
         locais, sem pular nada."""
+        registrar(f"VOTO {'curtir' if positivo else 'não curtir'}: {faixa['artista']} - {faixa['titulo']}")
         echo_client.enviar_feedback(faixa["artista"], faixa["titulo"], "positivo" if positivo else "negativo")
         playlists_mod.registrar_voto(faixa["titulo"], faixa["artista"], positivo=positivo)
         if self.faixa_atual and id_faixa(faixa["titulo"], faixa["artista"]) == id_faixa(self.faixa_atual["titulo"], self.faixa_atual["artista"]):
@@ -450,6 +454,7 @@ class ControladorReproducao(QObject):
         worker = _CaosWorker(
             self._geracao_caos, semente, self._excluidos_sessao + self._ids_na_fila(), quantidade, artistas_recentes, self,
         )
+        registrar(f"Caos: pedindo {quantidade} faixa(s) ao ECHO a partir de {semente['artista'] + ' - ' + semente['titulo'] if semente else 'nada (Caos novo)'}")
         worker.faixa_pronta.connect(self._ao_receber_faixa_caos)
         worker.sem_resultado.connect(self._ao_caos_sem_resultado)
         worker.finished.connect(lambda w=worker: self._finalizar_worker_caos(w))
@@ -491,15 +496,18 @@ class ControladorReproducao(QObject):
         chave = chave_repeticao(faixa["titulo"], faixa["artista"])
         ja_vistas = {chave_repeticao(f["titulo"], f["artista"]) for f in self._historico_sessao + self.fila.listar()}
         if chave in ja_vistas:
+            registrar(f"Caos: ignorada (já tocou/está na fila): {faixa['artista']} - {faixa['titulo']}")
             return
         if self.aguardando_caos:
             self.aguardando_caos = False
             self.tocar_faixa(faixa["titulo"], faixa["artista"], origem="caos")
             return
         self.fila.adicionar(faixa["titulo"], faixa["artista"], origem="caos")
+        registrar(f"Caos: na fila: {faixa['artista']} - {faixa['titulo']} (fila: {len(self.fila.listar())})")
         self.fila_mudou.emit()
 
     def _ao_caos_sem_resultado(self, geracao):
+        registrar("Caos: ECHO não devolveu nenhuma faixa (indisponível ou sem faixa nova)")
         if geracao == self._geracao_caos and self.aguardando_caos:
             self.aguardando_caos = False
             self.mensagem.emit("ECHO indisponível ou sem sugestão agora")

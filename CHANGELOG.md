@@ -6,6 +6,8 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 
 ### Adicionado
 
+- **Log do player (2026-10-06)** - pedido do usuário ("um log das músicas passando e tudo que tá acontecendo"). `siren/core/registro.py` grava em `logs/AAAA-MM-DD.log`, uma linha por evento com horário: faixa que começou (origem, voto atual e tamanho da fila), pedidos de faixas ao ECHO pelo Caos, faixa enfileirada ou ignorada por repetição, ECHO sem faixa nova, falha ao achar a faixa no YouTube e votos. De onde cada sugestão do Caos veio fica no log do ECHO. A pasta `logs/` está no `.gitignore`.
+
 - **Backup do ícone recortado (2026-10-01)** - `assets/icone_siren_recortado_old.png` guarda a versão recortada do ícone (PR #35), substituída depois pelo emblema original. Fica só como histórico, nada no código aponta pra ele.
 
 - **Fila do Caos no Modo Completo (2026-09-26)** - antes, o Caos pedia uma faixa ao ECHO só quando a anterior acabava: a tela Fila ficava vazia durante todo o Caos, e a troca de faixa congelava a janela enquanto o ECHO respondia. Agora, ao acionar o Caos, a fila é substituída (como ao tocar uma playlist), a primeira faixa toca assim que chega e as próximas 5 entram na fila, visíveis e editáveis na tela Fila. Quando sobram menos de 2 faixas do Caos, a fila é reabastecida em segundo plano a partir da última enfileirada. Os pedidos ao ECHO rodam fora da thread da interface (`_CaosWorker`), e respostas atrasadas de um Caos anterior são descartadas. O SIREN passou a enviar ao ECHO a penalidade de artista repetido da sessão (últimas 10 faixas) e descarta a mesma música escrita de outro jeito, por exemplo "(feat. X)" e "- feat. X". Validado ao vivo contra o ECHO. O Modo Leve continua com o comportamento antigo.
@@ -31,6 +33,7 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 
 ### Alterado
 
+- **Fila do Caos maior (2026-10-06)** - pedido do usuário ("acho que tem poucas músicas na fila"). O Caos agora mantém 10 faixas na fila (antes 5) e reabastece quando sobram menos de 4 (antes 2).
 - **Ícone de volta ao emblema original (2026-09-26)** - `assets/icone_siren.png` volta a ser a arte completa (sereia na pedra diante da lua, moldura dourada e os quatro cristais, a mesma de `E:\Downloads\Icones\Siren.png` que o IRIS já usava), no lugar do recorte do rosto feito em 2026-09-07 para ficar legível em tamanho pequeno - o usuário preferiu o original. O recorte ficou guardado como `assets/icone_siren_recortado_old.png`. Vale para a janela, a barra de tarefas e o botão "Abrir SIREN" da bandeja da GAIA.
 
 - **Coração de curtir igual em todo lugar, de volta ao rosa (2026-09-26)** - player do Modo Completo, linhas da Fila, tela do artista e miniplayer usam o mesmo ícone (`faixas.icone_curtir`): contorno quando não curtido, cheio e rosa quando curtido. O dourado, que chegou a ser usado no coração curtido, ficou só no cristal do item ativo da sidebar. No miniplayer, o "+" virou esse coração. Os quatro botões já chamavam o mesmo voto do controlador (`curtir`/`votar_faixa`). O não curtir ganhou o mesmo tratamento (`faixas.icone_nao_curtir`) e passou a existir também no miniplayer, ao lado do coração, chamando o mesmo `nao_curtir` do player do Modo Completo.
