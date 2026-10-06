@@ -152,8 +152,7 @@ class _ListaFila(QWidget):
         for indice, faixa in enumerate(faixas):
             titulo = metricas.elidedText(faixa["titulo"], Qt.ElideRight, largura)
             artista = metricas.elidedText(faixa["artista"], Qt.ElideRight, largura)
-            item = QListWidgetItem(f"{titulo}
-{artista}")
+            item = QListWidgetItem(f"{titulo}\n{artista}")
             item.setToolTip(f"{faixa['artista']} - {faixa['titulo']}")
             item.setData(Qt.UserRole, indice)
             self._lista.addItem(item)
