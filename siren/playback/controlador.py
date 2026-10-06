@@ -45,6 +45,7 @@ MINIMO_FILA_CAOS = 4
 JANELA_DIVERSIDADE = 10  # últimas faixas (tocadas + na fila) que contam pra penalidade de artista repetido
 MODOS_REPETIR = ["desligado", "fila", "faixa"]
 INTERVALO_PROGRESSO_MS = 500
+LIMITE_POSICAO_PARADA = 4  # segundos tocando sem a posição andar
 INTERVALO_SALVAR_SESSAO = 10  # s - um encerramento forçado não passa pelo closeEvent
 LIMITE_TROCA_DE_MODO = 30  # s esperando a outra janela assumir antes de desistir e seguir tocando aqui
 
@@ -210,6 +211,9 @@ class ControladorReproducao(QObject):
         self.repetir = repetir if repetir in MODOS_REPETIR else "desligado"
         self.player.definir_repetir_faixa(self.repetir == "faixa")
 
+        self._ultima_posicao = None
+        self._posicao_mudou_em = time.monotonic()
+        self._recarga_audio_feita = False
         self._timer = QTimer(self)
         self._timer.setInterval(INTERVALO_PROGRESSO_MS)
         self._timer.timeout.connect(self._atualizar_progresso)
@@ -294,6 +298,7 @@ class ControladorReproducao(QObject):
         resolvido = orquestrador.tocar_faixa(self.player, titulo, artista, origem=origem)
         if resolvido is None:
             registrar(f"ERRO ao resolver no YouTube: {artista} - {titulo} ({origem})")
+            self._excluidos_sessao.append(id_faixa(titulo, artista))  # o Caos não sugere de novo nesta sessão
             self.mensagem.emit(f"Não consegui resolver \"{artista} - {titulo}\"")
             return False
         self.faixa_atual = {"titulo": titulo, "artista": artista, "origem": origem}
@@ -308,6 +313,7 @@ class ControladorReproducao(QObject):
         self._definir_voto(self.voto_local(titulo, artista))
         self._definir_tocando(True)
         self.progresso.emit(0.0, float(self.duracao))
+        self._recarga_audio_feita = False
         registrar(f"TOCANDO {artista} - {titulo} | origem: {origem} | voto: {self.voto_local(titulo, artista) or '-'} | fila: {len(self.fila.listar())}")
         if origem == "caos":
             self._garantir_fila_caos()
@@ -342,11 +348,13 @@ class ControladorReproducao(QObject):
         if reciclar and self.repetir == "fila" and self.faixa_atual:
             atual = self.faixa_atual
             self.fila.adicionar(atual["titulo"], atual["artista"], origem=atual.get("origem", "fila"))
-        proxima = self.fila.proxima(aleatorio=self.aleatorio)
-        if proxima:
+        # Faixa que não resolve sai da fila e a seguinte é tentada na hora
+        # (2026-10-06: antes o 👎/pular parava na falha e a música atual
+        # seguia tocando, parecendo que o botão não funcionou).
+        while (proxima := self.fila.proxima(aleatorio=self.aleatorio)):
             self.fila_mudou.emit()
-            self.tocar_faixa(proxima["titulo"], proxima["artista"], origem=proxima.get("origem", "fila"))
-            return
+            if self.tocar_faixa(proxima["titulo"], proxima["artista"], origem=proxima.get("origem", "fila")):
+                return
         self.iniciar_caos(semente=self.faixa_atual)
 
     def anterior(self):
@@ -403,12 +411,37 @@ class ControladorReproducao(QObject):
                 cache_faixas_mod.registrar(self.faixa_atual["titulo"], self.faixa_atual["artista"], duracao=duracao_player)
                 self._duracao_registrada = True
         posicao = self.player.posicao_segundos or 0
+        self._vigiar_posicao_parada(posicao)
         self._eventos_loki.progresso(posicao, self.duracao)
         self.progresso.emit(float(posicao), float(self.duracao))
         agora = time.monotonic()
         if agora - self._ultimo_salvamento_sessao >= INTERVALO_SALVAR_SESSAO:
             self._ultimo_salvamento_sessao = agora
             self.salvar_sessao()
+
+    def _vigiar_posicao_parada(self, posicao):
+        """Achado real (2026-10-06): o MPV de uma sessão aberta havia horas
+        passou a devolver `time-pos` fixo em 64 s em toda faixa, com o áudio
+        tocando normal - a linha do tempo parava e só o clique (seek)
+        funcionava. Tocando, sem esperar rede e parada por
+        `LIMITE_POSICAO_PARADA` s: grava o estado do MPV no log e recria a
+        saída de áudio, uma vez por faixa."""
+        agora = time.monotonic()
+        if posicao != self._ultima_posicao or not self.tocando or self.player.pausado:
+            self._ultima_posicao = posicao
+            self._posicao_mudou_em = agora
+            return
+        if self._recarga_audio_feita or agora - self._posicao_mudou_em < LIMITE_POSICAO_PARADA:
+            return
+        diagnostico = self.player.diagnostico()
+        if diagnostico.get("paused_for_cache") or diagnostico.get("seeking"):
+            return  # esperando a rede: parar é normal
+        self._recarga_audio_feita = True
+        registrar(f"POSIÇÃO PARADA em {posicao:.1f}s há {agora - self._posicao_mudou_em:.0f}s, recarregando o áudio | {diagnostico}")
+        try:
+            self.player.recarregar_audio()
+        except Exception as e:
+            registrar(f"ERRO ao recarregar o áudio: {e}")
 
     # ---------------- votos ----------------
 

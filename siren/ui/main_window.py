@@ -20,7 +20,8 @@ sem as telas do Completo - só repinta quando algo muda."""
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import (
-    QApplication, QHBoxLayout, QLabel, QPushButton, QSizeGrip, QSlider, QStyle, QVBoxLayout, QWidget,
+    QApplication, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMenu, QPushButton, QSizeGrip, QSlider,
+    QStyle, QVBoxLayout, QWidget,
 )
 
 from siren.core import config as config_mod
@@ -43,6 +44,10 @@ QPushButton#miniPlay:hover {{ background: #dfe8ff; }}
 #miniTitulo {{ font-size: 16px; font-weight: 700; }}
 #miniArtista {{ color: {styles.COR_TEXTO_FRACO}; font-size: 12px; }}
 #miniTempo {{ color: {styles.COR_TEXTO_FRACO}; font-size: 10px; }}
+QListWidget#miniFila {{ background: transparent; border: none; outline: none; }}
+QListWidget#miniFila::item {{ padding: 5px 4px; border-radius: 6px; }}
+QListWidget#miniFila::item:hover {{ background: rgba(255, 255, 255, 0.08); }}
+#miniFilaVazia {{ color: {styles.COR_TEXTO_FRACO}; }}
 #miniVolume {{ background: #151e38; border: 1px solid rgba(130, 160, 255, 0.24); border-radius: 8px; }}
 QSlider::groove:horizontal {{ height: 4px; background: rgba(255, 255, 255, 0.18); border-radius: 2px; }}
 QSlider::sub-page:horizontal {{ background: #ffffff; border-radius: 2px; }}
@@ -85,7 +90,7 @@ class _BarraTopo(QWidget):
     nos controles escondidos sobre a capa e o usuário não achou) + alça de
     arrastar (a barra inteira arrasta) + fechar."""
 
-    def __init__(self, janela, ao_expandir):
+    def __init__(self, janela, ao_expandir, ao_alternar_fila):
         super().__init__()
         self._janela = janela
         self.setFixedHeight(28)
@@ -96,9 +101,15 @@ class _BarraTopo(QWidget):
         fechar.clicked.connect(janela.close)
         expandir = _botao("expandir", "Abrir o Modo Completo", 26, 14, styles.COR_TEXTO_FRACO)
         expandir.clicked.connect(ao_expandir)
+        self.botao_fila = _botao("fila", "Ver a fila", 26, 14, styles.COR_TEXTO_FRACO)
+        self.botao_fila.setCheckable(True)
+        self.botao_fila.toggled.connect(lambda aberta: self.botao_fila.setIcon(
+            icones.icone("fila", styles.COR_ACCENT_CLARO if aberta else styles.COR_TEXTO_FRACO, 14)))
+        self.botao_fila.toggled.connect(ao_alternar_fila)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(6, 0, 6, 0)
         layout.addWidget(expandir)
+        layout.addWidget(self.botao_fila)
         layout.addStretch()
         layout.addWidget(alca)
         layout.addStretch()
@@ -107,6 +118,71 @@ class _BarraTopo(QWidget):
     def mousePressEvent(self, evento):
         if evento.button() == Qt.LeftButton and self._janela.windowHandle() is not None:
             self._janela.windowHandle().startSystemMove()
+
+
+class _ListaFila(QWidget):
+    """Fila no lugar da capa (2026-10-06, pedido do usuário: botão pra ver a
+    fila no miniplayer). Clique toca a faixa, clique direito remove. A
+    tabela da tela Fila do Modo Completo não cabe nesta largura."""
+
+    def __init__(self, ctrl):
+        super().__init__()
+        self._ctrl = ctrl
+        self._lista = QListWidget()
+        self._lista.setObjectName("miniFila")
+        self._lista.setVerticalScrollMode(QListWidget.ScrollPerPixel)
+        self._lista.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._lista.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._lista.itemClicked.connect(self._tocar)
+        self._lista.customContextMenuRequested.connect(self._abrir_menu)
+        self._vazia = QLabel("Fila vazia")
+        self._vazia.setObjectName("miniFilaVazia")
+        self._vazia.setAlignment(Qt.AlignCenter)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._lista)
+        layout.addWidget(self._vazia)
+        self.setMinimumHeight(140)
+
+    def atualizar(self):
+        faixas = self._ctrl.fila.listar()
+        self._lista.clear()
+        largura = max(60, self._lista.viewport().width() - 16)
+        metricas = self._lista.fontMetrics()
+        for indice, faixa in enumerate(faixas):
+            titulo = metricas.elidedText(faixa["titulo"], Qt.ElideRight, largura)
+            artista = metricas.elidedText(faixa["artista"], Qt.ElideRight, largura)
+            item = QListWidgetItem(f"{titulo}
+{artista}")
+            item.setToolTip(f"{faixa['artista']} - {faixa['titulo']}")
+            item.setData(Qt.UserRole, indice)
+            self._lista.addItem(item)
+        self._lista.setVisible(bool(faixas))
+        self._vazia.setVisible(not faixas)
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        if self.isVisible():
+            self.atualizar()
+
+    def _tocar(self, item):
+        faixas = self._ctrl.fila.listar()
+        indice = item.data(Qt.UserRole)
+        if 0 <= indice < len(faixas):
+            faixa = faixas[indice]
+            self._ctrl.fila.remover(indice)
+            self._ctrl.fila_mudou.emit()
+            self._ctrl.tocar_faixa(faixa["titulo"], faixa["artista"], origem=faixa.get("origem", "fila"))
+
+    def _abrir_menu(self, posicao):
+        item = self._lista.itemAt(posicao)
+        if item is None:
+            return
+        menu = QMenu(self)
+        remover = menu.addAction("Remover da fila")
+        if menu.exec(self._lista.mapToGlobal(posicao)) is remover:
+            self._ctrl.fila.remover(item.data(Qt.UserRole))
+            self._ctrl.fila_mudou.emit()
 
 
 class _AreaCapa(QWidget):
@@ -287,8 +363,11 @@ class MainWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 0, 12, 0)
         layout.setSpacing(4)
-        layout.addWidget(_BarraTopo(self, self._trocar_pro_completo))
+        self._lista_fila = _ListaFila(self._ctrl)
+        self._lista_fila.hide()
+        layout.addWidget(_BarraTopo(self, self._trocar_pro_completo, self._alternar_fila))
         layout.addWidget(self._area_capa, stretch=1)
+        layout.addWidget(self._lista_fila, stretch=1)
         layout.addLayout(linha_tempo)
         layout.addWidget(self._slider)
         layout.addSpacing(4)
@@ -312,6 +391,17 @@ class MainWindow(QWidget):
         ctrl.mensagem.connect(self._artista.setText)
         ctrl.modos_mudaram.connect(lambda *_: self._atualizar_modos())
         ctrl.troca_concluida.connect(self.close)
+        ctrl.fila_mudou.connect(self._atualizar_fila)
+        ctrl.faixa_mudou.connect(lambda _faixa: self._atualizar_fila())
+
+    def _alternar_fila(self, aberta):
+        self._area_capa.setVisible(not aberta)
+        self._lista_fila.setVisible(aberta)
+        self._atualizar_fila()
+
+    def _atualizar_fila(self):
+        if self._lista_fila.isVisible():
+            self._lista_fila.atualizar()
 
     def _elidir(self, rotulo, texto):
         rotulo.setToolTip(texto)
