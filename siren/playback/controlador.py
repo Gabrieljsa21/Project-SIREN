@@ -447,21 +447,35 @@ class ControladorReproducao(QObject):
 
     def votar_faixa(self, faixa, positivo):
         """Voto numa faixa qualquer (fila, tela do artista): ECHO + playlists
-        locais, sem pular nada."""
-        registrar(f"VOTO {'curtir' if positivo else 'não curtir'}: {faixa['artista']} - {faixa['titulo']}")
-        echo_client.enviar_feedback(faixa["artista"], faixa["titulo"], "positivo" if positivo else "negativo")
-        playlists_mod.registrar_voto(faixa["titulo"], faixa["artista"], positivo=positivo)
+        locais, sem pular nada. `positivo=None` tira o voto (clicar de novo
+        no botão já marcado, 2026-10-12: "o siren tem de permitir ficar
+        trocando o like e dislike qnd clica nele novamente")."""
+        if positivo is None:
+            registrar(f"VOTO removido: {faixa['artista']} - {faixa['titulo']}")
+            echo_client.remover_voto(faixa["artista"], faixa["titulo"])
+            playlists_mod.remover_voto(faixa["titulo"], faixa["artista"])
+            voto = None
+        else:
+            registrar(f"VOTO {'curtir' if positivo else 'não curtir'}: {faixa['artista']} - {faixa['titulo']}")
+            echo_client.enviar_feedback(faixa["artista"], faixa["titulo"], "positivo" if positivo else "negativo")
+            playlists_mod.registrar_voto(faixa["titulo"], faixa["artista"], positivo=positivo)
+            voto = "positivo" if positivo else "negativo"
         if self.faixa_atual and id_faixa(faixa["titulo"], faixa["artista"]) == id_faixa(self.faixa_atual["titulo"], self.faixa_atual["artista"]):
-            self._definir_voto("positivo" if positivo else "negativo")
+            self._definir_voto(voto)
         self.votos_mudaram.emit()
 
     def curtir(self):
+        """Curtir de novo uma faixa já curtida tira o voto."""
         if self.faixa_atual:
-            self.votar_faixa(self.faixa_atual, True)
+            self.votar_faixa(self.faixa_atual, None if self.voto_atual == "positivo" else True)
 
     def nao_curtir(self):
-        """👎 na faixa atual pula pra próxima (sem reciclar no Repetir fila)."""
+        """👎 na faixa atual pula pra próxima (sem reciclar no Repetir fila).
+        Se ela já estava com 👎 (veio de outro lugar), tira o voto e fica."""
         if not self.faixa_atual:
+            return
+        if self.voto_atual == "negativo":
+            self.votar_faixa(self.faixa_atual, None)
             return
         self.votar_faixa(self.faixa_atual, False)
         self.proxima(reciclar=False)

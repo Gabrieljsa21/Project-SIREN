@@ -65,6 +65,7 @@ def controlador(monkeypatch):
 
     monkeypatch.setattr(controlador_mod.orquestrador, "tocar_faixa", tocar_falso)
     monkeypatch.setattr(controlador_mod.echo_client, "enviar_feedback", lambda *a, **k: None)
+    monkeypatch.setattr(controlador_mod.echo_client, "remover_voto", lambda *a, **k: None)
     ctrl = controlador_mod.ControladorReproducao(player=_PlayerFalso(), midia=False)
     yield ctrl
     ctrl.encerrar()
@@ -140,6 +141,34 @@ def test_curtir_marca_o_voto_da_faixa_atual(controlador):
     controlador.curtir()
     assert votos[-1] == "positivo"
     assert controlador.voto_local("A", "X") == "positivo"
+
+
+def test_curtir_de_novo_tira_o_voto(controlador):
+    """Pedido do usuário 2026-10-12: clicar de novo no botão já marcado."""
+    votos = []
+    controlador.voto_mudou.connect(votos.append)
+    controlador.tocar_faixa("A", "X")
+    controlador.curtir()
+    controlador.curtir()
+    assert votos[-1] is None
+    assert controlador.voto_local("A", "X") is None
+
+
+def test_trocar_curtir_por_nao_curtir_pela_fila(controlador):
+    faixa = {"titulo": "A", "artista": "X"}
+    controlador.votar_faixa(faixa, True)
+    controlador.votar_faixa(faixa, False)
+    assert controlador.voto_local("A", "X") == "negativo"
+    controlador.votar_faixa(faixa, True)
+    assert controlador.voto_local("A", "X") == "positivo"
+
+
+def test_nao_curtir_faixa_ja_descurtida_tira_o_voto_sem_pular(controlador):
+    controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "AB"], "playlist:P")
+    controlador.votar_faixa(controlador.faixa_atual, False)
+    controlador.nao_curtir()
+    assert controlador.faixa_atual["titulo"] == "A"
+    assert controlador.voto_local("A", "X") is None
 
 
 def test_alternar_repetir_percorre_os_tres_modos(controlador):

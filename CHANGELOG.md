@@ -34,6 +34,8 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 
 ### Alterado
 
+- **Clicar de novo no curtir ou no não curtir tira o voto (2026-10-12)** - pedido do usuário ("o siren tem de permitir ficar trocando o like e dislike qnd clica nele novamente"). Antes, reclicar no botão já marcado não fazia nada, porque o ECHO não tinha como retirar um voto. Agora a faixa sai de Músicas Curtidas ou Não Curtidas e o ECHO desfaz o ajuste de gênero e a nota do artista (nova rota `POST /radar/remover_voto`). Vale no player do Modo Completo, no miniplayer, na Fila e na tela do artista. Trocar de curtir para não curtir também passou a desfazer o voto anterior no ECHO, em vez de somar os dois. O não curtir da faixa atual continua pulando para a próxima; se ela já estava com não curtir, o clique só tira o voto e a música continua.
+
 - **Fila do Caos maior (2026-10-06)** - pedido do usuário ("acho que tem poucas músicas na fila"). O Caos agora mantém 10 faixas na fila (antes 5) e reabastece quando sobram menos de 4 (antes 2).
 - **Ícone de volta ao emblema original (2026-09-26)** - `assets/icone_siren.png` volta a ser a arte completa (sereia na pedra diante da lua, moldura dourada e os quatro cristais, a mesma de `E:\Downloads\Icones\Siren.png` que o IRIS já usava), no lugar do recorte do rosto feito em 2026-09-07 para ficar legível em tamanho pequeno - o usuário preferiu o original. O recorte ficou guardado como `assets/icone_siren_recortado_old.png`. Vale para a janela, a barra de tarefas e o botão "Abrir SIREN" da bandeja da GAIA.
 

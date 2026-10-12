@@ -348,11 +348,13 @@ class ViewFila(QWidget):
 
     def _votar(self, indice, voto):
         faixas = self._fila.listar()
-        if not (0 <= indice < len(faixas)) or faixas[indice].get("voto") == voto:
-            self.atualizar()  # reclicar no botão já marcado não desfaz o voto (o ECHO não tem "tirar voto")
+        if not (0 <= indice < len(faixas)):
+            self.atualizar()
             return
+        if faixas[indice].get("voto") == voto:
+            voto = None  # reclicar no botão já marcado tira o voto (2026-10-12)
         self._fila.definir_voto(indice, voto)
-        self._ao_votar(faixas[indice], voto == "positivo")
+        self._ao_votar(faixas[indice], None if voto is None else voto == "positivo")
         self.atualizar()
 
     def _mover_para(self, origem, destino):

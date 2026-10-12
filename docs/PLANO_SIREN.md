@@ -120,6 +120,7 @@ Nenhuma mudança no ECHO é necessária - todas essas rotas já existem
 - `POST /radar/semente` - sugestão de partida sem faixa de referência.
 - `POST /radar/proxima` - continuação a partir da faixa atual.
 - `POST /radar/feedback_ao_vivo` - 👍/👎.
+- `POST /radar/remover_voto` - tira o voto (clicar de novo no botão já marcado).
 - `GET /perfil/voto` - se a faixa atual já foi avaliada antes.
 
 `discord_user_id` usa o mesmo `DONO_DISCORD_ID` fixo que `assistant/integrations/echo_client.py`

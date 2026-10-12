@@ -120,6 +120,13 @@ def remover_descobertas_legada():
     return False
 
 
+def remover_voto(titulo, artista):
+    """Tira a faixa das duas playlists de voto (clicar de novo no botão já
+    marcado, 2026-10-12)."""
+    remover_faixa(NOME_PLAYLIST_CURTIDAS, titulo, artista)
+    remover_faixa(NOME_PLAYLIST_NAO_CURTIDAS, titulo, artista)
+
+
 def registrar_voto(titulo, artista, positivo):
     """Mantém os votos em duas playlists especiais e mutuamente exclusivas.
 

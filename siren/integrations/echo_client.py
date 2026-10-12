@@ -92,6 +92,13 @@ def enviar_feedback(artista, titulo, feedback, abrir_prova=True):
     })
 
 
+def remover_voto(artista, titulo):
+    """`/radar/remover_voto` (2026-10-12) - clicar de novo no 👍/👎 já
+    marcado: a faixa volta a não ter voto no ECHO, que desfaz o ajuste de
+    gênero e a nota do artista."""
+    return _post("/radar/remover_voto", {"discord_user_id": DONO_DISCORD_ID, "artista": artista, "titulo": titulo})
+
+
 def obter_voto(artista, titulo):
     """`/perfil/voto` - devolve `"positivo"`/`"negativo"`/`None` se essa
     faixa já foi avaliada antes."""

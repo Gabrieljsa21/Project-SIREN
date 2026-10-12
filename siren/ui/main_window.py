@@ -429,7 +429,7 @@ class MainWindow(QWidget):
 
     def _ao_clicar_curtir(self):
         # O clique já alterna o `checked`; quem decide o estado real é o
-        # voto (sinal `voto_mudou`) - curtir de novo não desfaz o voto.
+        # voto (sinal `voto_mudou`) - curtir de novo tira o voto.
         self._botao_curtir.setChecked(self._ctrl.voto_atual == "positivo")
         self._ctrl.curtir()
 
