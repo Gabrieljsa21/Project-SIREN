@@ -65,6 +65,9 @@ CAUSTICAS_A_CADA = 3  # quadros lentos (~4 fps): é o efeito mais caro (~7 ms ex
 # ícones e botões do player sem texto.
 MARGEM_REDIMENSIONAR = 6
 TAMANHO_MINIMO = (900, 620)
+# Votos do ECHO na abertura: até 10 tentativas, 15 s entre elas (~2 min e meio).
+TENTATIVAS_SYNC_VOTOS = 10
+INTERVALO_SYNC_VOTOS_MS = 15000
 LARGURA_SIDEBAR = 284
 LARGURA_SIDEBAR_COMPACTA = 76
 LIMITE_SIDEBAR_COMPACTA = 1120  # largura da janela abaixo da qual a sidebar vira só ícones
@@ -831,13 +834,20 @@ class FullWindow(QWidget):
         for faixa in favoritos_mod.carregar():
             playlists_mod.registrar_voto(faixa["titulo"], faixa["artista"], positivo=True)
 
-    def _sincronizar_votos_echo(self):
+    def _sincronizar_votos_echo(self, tentativa=1):
         self._worker_votos = ImportEchoVotesWorker(self)
-        self._worker_votos.concluido.connect(self._aplicar_votos_echo)
+        self._worker_votos.concluido.connect(
+            lambda aprovadas, desaprovadas: self._aplicar_votos_echo(aprovadas, desaprovadas, tentativa))
         self._worker_votos.finished.connect(self._worker_votos.deleteLater)
         self._worker_votos.start()
 
-    def _aplicar_votos_echo(self, aprovadas, desaprovadas):
+    def _aplicar_votos_echo(self, aprovadas, desaprovadas, tentativa=1):
+        # O SIREN costuma abrir alguns segundos antes do ECHO (2026-10-13,
+        # achado real: 6 s de diferença). Sem resposta, tenta de novo em vez
+        # de desistir até o próximo reinício.
+        if not aprovadas and not desaprovadas and tentativa < TENTATIVAS_SYNC_VOTOS:
+            QTimer.singleShot(INTERVALO_SYNC_VOTOS_MS, lambda: self._sincronizar_votos_echo(tentativa + 1))
+            return
         for faixa in aprovadas:
             playlists_mod.registrar_voto(faixa["titulo"], faixa["artista"], positivo=True)
         for faixa in desaprovadas:

@@ -65,6 +65,7 @@ def controlador(monkeypatch):
 
     monkeypatch.setattr(controlador_mod.orquestrador, "tocar_faixa", tocar_falso)
     monkeypatch.setattr(controlador_mod.echo_client, "enviar_feedback", lambda *a, **k: None)
+    monkeypatch.setattr(controlador_mod.echo_client, "remover_voto", lambda *a, **k: None)
     ctrl = controlador_mod.ControladorReproducao(player=_PlayerFalso(), midia=False)
     yield ctrl
     ctrl.encerrar()
@@ -104,6 +105,35 @@ def test_nao_curtir_pula_sem_reciclar_e_registra_o_voto(controlador):
     assert {"titulo": "A", "artista": "X"} in nao_curtidas
 
 
+def test_proxima_pula_faixa_que_nao_resolve(controlador, monkeypatch):
+    controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "ABC"], "playlist:P")
+    original = controlador_mod.orquestrador.tocar_faixa
+
+    def tocar_ou_falhar(player, titulo, artista, origem="fila"):
+        return None if titulo == "B" else original(player, titulo, artista, origem)
+
+    monkeypatch.setattr(controlador_mod.orquestrador, "tocar_faixa", tocar_ou_falhar)
+    controlador.nao_curtir()
+    assert controlador.faixa_atual["titulo"] == "C"
+    assert _titulos(controlador) == []
+    assert controlador_mod.id_faixa("B", "X") in controlador._excluidos_sessao
+
+
+def test_posicao_parada_recarrega_o_audio_uma_vez(controlador, monkeypatch):
+    recargas = []
+    controlador.player.diagnostico = lambda: {"paused_for_cache": False, "seeking": False}
+    controlador.player.recarregar_audio = lambda: recargas.append(True)
+    controlador.tocar_lista([{"titulo": "A", "artista": "X"}], "playlist:P")
+    controlador.player.posicao_segundos = 64.0
+    agora = [1000.0]
+    monkeypatch.setattr(controlador_mod.time, "monotonic", lambda: agora[0])
+    controlador._atualizar_progresso()
+    for _ in range(3):
+        agora[0] += controlador_mod.LIMITE_POSICAO_PARADA + 1
+        controlador._atualizar_progresso()
+    assert recargas == [True]
+
+
 def test_curtir_marca_o_voto_da_faixa_atual(controlador):
     votos = []
     controlador.voto_mudou.connect(votos.append)
@@ -111,6 +141,34 @@ def test_curtir_marca_o_voto_da_faixa_atual(controlador):
     controlador.curtir()
     assert votos[-1] == "positivo"
     assert controlador.voto_local("A", "X") == "positivo"
+
+
+def test_curtir_de_novo_tira_o_voto(controlador):
+    """Pedido do usuário 2026-10-12: clicar de novo no botão já marcado."""
+    votos = []
+    controlador.voto_mudou.connect(votos.append)
+    controlador.tocar_faixa("A", "X")
+    controlador.curtir()
+    controlador.curtir()
+    assert votos[-1] is None
+    assert controlador.voto_local("A", "X") is None
+
+
+def test_trocar_curtir_por_nao_curtir_pela_fila(controlador):
+    faixa = {"titulo": "A", "artista": "X"}
+    controlador.votar_faixa(faixa, True)
+    controlador.votar_faixa(faixa, False)
+    assert controlador.voto_local("A", "X") == "negativo"
+    controlador.votar_faixa(faixa, True)
+    assert controlador.voto_local("A", "X") == "positivo"
+
+
+def test_nao_curtir_faixa_ja_descurtida_tira_o_voto_sem_pular(controlador):
+    controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "AB"], "playlist:P")
+    controlador.votar_faixa(controlador.faixa_atual, False)
+    controlador.nao_curtir()
+    assert controlador.faixa_atual["titulo"] == "A"
+    assert controlador.voto_local("A", "X") is None
 
 
 def test_alternar_repetir_percorre_os_tres_modos(controlador):

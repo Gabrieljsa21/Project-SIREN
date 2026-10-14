@@ -10,6 +10,7 @@ Python compartilhado entre os dois).
 é a parte pura (sem rede), testável sem depender do yt-dlp de verdade."""
 import os
 import time
+import urllib.parse
 from dataclasses import dataclass
 from typing import Optional
 
@@ -27,6 +28,7 @@ OPCOES_BASE = {
 # URL de stream do YouTube expira - 5h é uma folga confortável pra qualquer
 # sessão de escuta razoável sem precisar reagendar re-resolução no meio dela.
 DURACAO_EXPIRACAO_SEGUNDOS = 5 * 60 * 60
+RESULTADOS_PLANO_B = 5
 
 
 @dataclass
@@ -75,13 +77,56 @@ def resolver_stream(titulo, artista):
     cookies = os.getenv("YOUTUBE_COOKIES_FILE")
     if cookies and os.path.exists(cookies):
         opcoes["cookiefile"] = cookies
+    query = montar_query(titulo, artista)
     try:
         with yt_dlp.YoutubeDL(opcoes) as ydl:
-            info = ydl.extract_info(montar_query(titulo, artista), download=False)
+            info = ydl.extract_info(query, download=False)
     except Exception as e:
         print(f"[SIREN] Falha ao resolver stream (\"{artista} - {titulo}\"): {e}")
-        return None
-    return extrair_resolved_stream(info, titulo, artista)
+        info = None
+    resolvido = extrair_resolved_stream(info, titulo, artista)
+    if resolvido is None:
+        resolvido = _resolver_pelos_proximos_resultados(query, opcoes, titulo, artista)
+    return resolvido
+
+
+def _resolver_pelos_proximos_resultados(query, opcoes, titulo, artista):
+    """Plano B quando o 1º resultado não toca (2026-10-06, log real: vídeo
+    com restrição de idade, ou busca do YouTube que volta vazia - "Frejat
+    Por você" não acha nada lá, só no YouTube Music): lista os próximos
+    resultados das duas buscas sem abrir nenhum e tenta um por um até achar
+    um tocável."""
+    for url in _candidatos(query, opcoes):
+        try:
+            with yt_dlp.YoutubeDL(opcoes) as ydl:
+                resolvido = extrair_resolved_stream(ydl.extract_info(url, download=False), titulo, artista)
+        except Exception:
+            continue
+        if resolvido is not None:
+            return resolvido
+    return None
+
+
+def _candidatos(query, opcoes):
+    opcoes_lista = dict(opcoes)
+    opcoes_lista.update({"extract_flat": "in_playlist", "skip_download": True, "playlistend": RESULTADOS_PLANO_B})
+    buscas = [
+        f"ytsearch{RESULTADOS_PLANO_B}:{query}",
+        f"https://music.youtube.com/search?q={urllib.parse.quote(query)}#songs",
+    ]
+    vistos = set()
+    for busca in buscas:
+        try:
+            with yt_dlp.YoutubeDL(opcoes_lista) as ydl:
+                lista = ydl.extract_info(busca, download=False)
+        except Exception as e:
+            print(f"[SIREN] Falha ao listar resultados ({busca}): {e}")
+            continue
+        for entrada in ((lista or {}).get("entries") or [])[:RESULTADOS_PLANO_B]:
+            url = entrada and (entrada.get("url") or entrada.get("id"))
+            if url and entrada.get("id") not in vistos:
+                vistos.add(entrada.get("id"))
+                yield url
 
 
 def extrair_resultados_busca(info):

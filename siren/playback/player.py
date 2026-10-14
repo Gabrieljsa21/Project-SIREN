@@ -65,6 +65,21 @@ class Player:
         """Move a faixa atual para uma posição absoluta em segundos."""
         self._mpv.time_pos = max(0.0, float(segundos))
 
+    def recarregar_audio(self):
+        """Recria a saída de áudio sem trocar de faixa (`ao-reload`)."""
+        self._mpv.command("ao-reload")
+
+    def diagnostico(self):
+        """Propriedades do MPV que explicam uma posição parada, pro log."""
+        nomes = ("time_pos", "playback_time", "audio_pts", "core_idle", "paused_for_cache", "seeking", "eof_reached", "current_ao")
+        dados = {}
+        for nome in nomes:
+            try:
+                dados[nome] = getattr(self._mpv, nome)
+            except Exception as e:
+                dados[nome] = f"erro: {e}"
+        return dados
+
     @property
     def pausado(self):
         return bool(self._mpv.pause)

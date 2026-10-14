@@ -16,6 +16,11 @@ dist/
 
 # Dados gerados em runtime (playlists/favoritos/histórico locais)
 data/*.json
+data/*.json.bak
+data/*.json.tmp
+
+# Log do player (siren/core/registro.py)
+logs/
 
 # Editores / SO
 .vscode/

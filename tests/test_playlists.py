@@ -68,3 +68,22 @@ def test_playlists_de_voto_nao_podem_ser_excluidas():
     playlists_mod.registrar_voto("Doomsday", "MF DOOM", positivo=True)
     assert playlists_mod.excluir(playlists_mod.NOME_PLAYLIST_CURTIDAS) is False
     assert len(playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_CURTIDAS)) == 1
+
+
+def test_arquivo_ilegivel_usa_a_copia_bak():
+    """2026-10-13: arquivo ilegível virava {} e o voto seguinte apagava
+    Curtidas e Não Curtidas."""
+    playlists_mod.registrar_voto("Doomsday", "MF DOOM", positivo=True)
+    playlists_mod.registrar_voto("Creep", "Radiohead", positivo=False)
+    with open(playlists_mod.ARQUIVO_PLAYLISTS, "w", encoding="utf-8") as f:
+        f.write('{"Músicas Curtidas": [{"titu')
+    playlists_mod.registrar_voto("505", "Arctic Monkeys", positivo=True)
+    assert len(playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_CURTIDAS)) == 2
+    assert playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_NAO_CURTIDAS) == [
+        {"titulo": "Creep", "artista": "Radiohead"}]
+
+
+def test_salvar_nao_deixa_temporario():
+    playlists_mod.criar("Treino")
+    import os
+    assert not os.path.exists(playlists_mod.ARQUIVO_PLAYLISTS + ".tmp")

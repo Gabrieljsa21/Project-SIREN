@@ -133,7 +133,10 @@ class _TabelaFaixas(QTableWidget):
         return celula
 
     def _votar(self, faixa, voto):
-        if self._votos.get(_id(faixa)) != voto:
+        if self._votos.get(_id(faixa)) == voto:
+            self._votos.pop(_id(faixa), None)  # reclicar no botão já marcado tira o voto (2026-10-12)
+            self._ao_votar(faixa, None)
+        else:
             self._votos[_id(faixa)] = voto
             self._ao_votar(faixa, voto == "positivo")
         self.mostrar(self._faixas, self._votos)

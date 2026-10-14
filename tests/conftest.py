@@ -11,6 +11,7 @@ from siren.core import config as config_mod
 from siren.core import downloads as downloads_mod
 from siren.core import cache_faixas as cache_faixas_mod
 from siren.core import sessao as sessao_mod
+from siren.core import registro as registro_mod
 
 
 @pytest.fixture(autouse=True)
@@ -26,4 +27,5 @@ def isolar_persistencia(tmp_path, monkeypatch):
     monkeypatch.setattr(sessao_mod, "ARQUIVO_JANELA", str(tmp_path / "janela.json"))
     monkeypatch.setattr(sessao_mod, "ARQUIVO_JANELA_MINI", str(tmp_path / "janela_mini.json"))
     monkeypatch.setattr(sessao_mod, "ARQUIVO_TROCA", str(tmp_path / "troca.json"))
+    monkeypatch.setattr(registro_mod, "PASTA_LOGS", str(tmp_path / "logs"))
     yield
