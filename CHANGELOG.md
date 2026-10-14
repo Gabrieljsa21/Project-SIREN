@@ -56,6 +56,8 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 
 ### Corrigido
 
+- **Botões de voto cortados na lista da playlist (2026-10-14)** - o botão de 30 px da Fila não cabia na linha da lista (24 px úteis depois do padding do item) e o círculo do voto marcado aparecia cortado. Na lista da playlist os botões têm 24 px.
+
 - **Playlist não seguia depois da faixa clicada (2026-10-14)** - duplo clique numa faixa da playlist tocava só ela, e o Caos assumia em seguida. Agora toca a partir dela e põe o resto da playlist na fila (substituindo a fila atual, igual ao ▶ dos cartões da Home).
 
 - **Importar playlist pelo link de um vídeo dela (2026-10-14)** - o link copiado com um vídeo da playlist aberto (`watch?v=...&list=...`) importava zero faixas: com `extract_flat`, o yt-dlp trata esse link como um vídeo só, sem lista de itens. O importador agora extrai o parâmetro `list` e usa o link da playlist em si.
