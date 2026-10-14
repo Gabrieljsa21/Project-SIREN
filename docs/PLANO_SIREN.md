@@ -282,6 +282,10 @@ spotfy e youtube".
 - **YouTube** - `integrations/importador_youtube.py` lista os vídeos de uma
   playlist pública via `yt-dlp` (`extract_flat`, sem baixar nada), sem
   credencial nenhuma. Validado contra uma playlist pública real (35 faixas).
+  Aceita também o link de um vídeo aberto dentro da playlist
+  (`watch?v=...&list=...`, 2026-10-14): o importador usa o parâmetro `list`
+  pra montar o link da playlist, porque com `extract_flat` o yt-dlp trata o
+  `watch` como um vídeo só e a importação saía vazia.
 - **Spotify** - **não dá pra importar direto via API sem exigir assinatura
   Premium ATIVA do usuário** (mesmo achado documentado em
   `Project-ECHO/docs/ARQUITETURA.md`, seção "Por que Last.fm não Spotify" - o app
