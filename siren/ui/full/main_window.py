@@ -906,7 +906,10 @@ class FullWindow(QWidget):
                 ao_tocar_playlist=self._tocar_playlist,
             ),
             "now": ViewTocandoAgora(ao_iniciar_caos=self._iniciar_caos, player=self._player),
-            "playlists": ViewPlaylists(ao_tocar=self._tocar_faixa, fila=self._fila),
+            "playlists": ViewPlaylists(
+                ao_tocar=self._tocar_faixa, fila=self._fila, ao_votar=self._votar_faixa_da_fila,
+                ao_tocar_lista=self._tocar_lista,
+            ),
             "queue": ViewFila(
                 self._fila, ao_tocar=self._tocar_faixa, ao_votar=self._votar_faixa_da_fila,
                 ao_abrir_artista=self._abrir_artista,
@@ -1167,6 +1170,7 @@ class FullWindow(QWidget):
         ctrl.fila_mudou.connect(self._atualizar_view_fila)
         ctrl.modos_mudaram.connect(lambda *_: self._atualizar_botoes_modo())
         ctrl.votos_mudaram.connect(self._atualizar_sidebar_playlists)
+        ctrl.votos_mudaram.connect(self._views["playlists"].atualizar_votos)
         ctrl.troca_concluida.connect(self.close)
 
     def _ao_mudar_faixa(self, faixa):

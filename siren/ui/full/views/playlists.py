@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import unicodedata
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QSize, Qt, QTimer
 from PySide6.QtWidgets import (
     QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QPushButton, QStackedWidget, QVBoxLayout, QWidget,
@@ -10,8 +10,12 @@ from PySide6.QtWidgets import (
 from siren.core import importador_texto
 from siren.core import playlists as playlists_mod
 from siren.ui.full.import_worker import ImportYoutubeWorker
+from siren.ui.full import faixas as faixas_ui
 from siren.ui.full import icones, styles
 from siren.ui.full.widgets import PainelAcoesFaixa
+
+
+ALTURA_LINHA = 40
 
 
 def _normalizar(texto):
@@ -27,10 +31,48 @@ def faixa_combina(faixa, busca):
     return all(palavra in alvo for palavra in _normalizar(busca).split())
 
 
+class LinhaFaixa(QWidget):
+    """Linha da lista de uma playlist (2026-10-14, pedido do usuário: "podia
+    mostrar quais estao curtidas, e permitir trocar entre os 3 status"):
+    texto + o mesmo par curtir/não curtir da Fila. O texto deixa o mouse
+    passar pra lista (selecionar, duplo clique pra tocar)."""
+
+    def __init__(self, faixa, voto, ao_votar):
+        super().__init__()
+        self._faixa = faixa
+        self._ao_votar = ao_votar
+        texto = faixas_ui.RotuloElidido(f"{faixa['titulo']} - {faixa['artista']}")
+        texto.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 8, 0)
+        layout.setSpacing(2)
+        layout.addWidget(texto, stretch=1)
+        self._curtir, self._nao_curtir = faixas_ui.botoes_voto(voto, self._votar)
+        layout.addWidget(self._curtir)
+        layout.addWidget(self._nao_curtir)
+        self.definir_voto(voto)
+
+    def definir_voto(self, voto):
+        self._voto = voto
+        self._curtir.setChecked(voto == "positivo")
+        self._nao_curtir.setChecked(voto == "negativo")
+
+    def _votar(self, voto):
+        # Reclicar no botão já marcado tira o voto (mesma regra da Fila).
+        novo = None if self._voto == voto else voto
+        self.definir_voto(novo)
+        self._ao_votar(self._faixa, None if novo is None else novo == "positivo")
+
+
 class ViewPlaylists(QWidget):
-    def __init__(self, ao_tocar, fila=None):
+    def __init__(self, ao_tocar, fila=None, ao_votar=None, ao_tocar_lista=None):
+        """`ao_votar(faixa, positivo)`: mesmo caminho dos votos da Fila
+        (ECHO + playlists locais); `positivo=None` tira o voto.
+        `ao_tocar_lista(faixas, origem)`: toca a 1ª e põe o resto na fila."""
         super().__init__()
         self._ao_tocar = ao_tocar
+        self._ao_tocar_lista = ao_tocar_lista
+        self._ao_votar = ao_votar
         self._playlist_atual = None
         self._worker_importacao = None
 
@@ -87,6 +129,8 @@ class ViewPlaylists(QWidget):
         self._rotulo_resultado.setObjectName("legendaView")
         self._lista_faixas = QListWidget()
         self._lista_faixas.itemActivated.connect(self._tocar_faixa_selecionada)
+        self._lista_faixas.verticalScrollBar().valueChanged.connect(self._criar_linhas_visiveis)
+        self._lista_faixas.installEventFilter(self)
         layout_detalhe.addWidget(botao_voltar)
         layout_detalhe.addWidget(self._rotulo_playlist_atual)
         linha_busca = QHBoxLayout()
@@ -173,12 +217,60 @@ class ViewPlaylists(QWidget):
         self._rotulo_playlist_atual.setText(nome)
         self._lista_faixas.clear()
         for faixa in playlists_mod.obter_faixas(nome):
-            entrada = QListWidgetItem(f"{faixa['titulo']} - {faixa['artista']}")
+            if self._ao_votar is None:
+                entrada = QListWidgetItem(f"{faixa['titulo']} - {faixa['artista']}")
+            else:
+                entrada = QListWidgetItem()  # o texto fica na LinhaFaixa
+                entrada.setSizeHint(QSize(0, ALTURA_LINHA))
             entrada.setData(Qt.UserRole, faixa)
             self._lista_faixas.addItem(entrada)
         self._busca.clear()
         self._filtrar_faixas("")
         self._pilha.setCurrentIndex(1)
+        QTimer.singleShot(0, self._criar_linhas_visiveis)
+
+    def _criar_linhas_visiveis(self):
+        """Cria a `LinhaFaixa` só das linhas que aparecem na tela: montar as
+        998 de Não Curtidas de uma vez travava a janela por ~1,3 s. As já
+        criadas ficam (rolar de volta não recria nada)."""
+        if self._ao_votar is None or self._pilha.currentIndex() != 1:
+            return
+        lista = self._lista_faixas
+        area = lista.viewport().rect()
+        primeira = lista.indexAt(area.topLeft())
+        if not primeira.isValid():
+            return
+        votos = None
+        for indice in range(primeira.row(), lista.count()):
+            item = lista.item(indice)
+            if item.isHidden():
+                continue
+            if lista.visualItemRect(item).top() > area.bottom():
+                break
+            if lista.itemWidget(item) is None:
+                if votos is None:
+                    votos = playlists_mod.votos_locais()
+                faixa = item.data(Qt.UserRole)
+                voto = playlists_mod.voto_local(faixa["titulo"], faixa["artista"], votos)
+                lista.setItemWidget(item, LinhaFaixa(faixa, voto, self._ao_votar))
+
+    def eventFilter(self, objeto, evento):
+        if objeto is self._lista_faixas and evento.type() in (QEvent.Resize, QEvent.Show):
+            QTimer.singleShot(0, self._criar_linhas_visiveis)
+        return super().eventFilter(objeto, evento)
+
+    def atualizar_votos(self):
+        """Voto dado em outro lugar (player, Fila, miniplayer) aparece na
+        lista aberta sem recarregá-la."""
+        if self._pilha.currentIndex() != 1 or self._ao_votar is None:
+            return
+        votos = playlists_mod.votos_locais()
+        for indice in range(self._lista_faixas.count()):
+            item = self._lista_faixas.item(indice)
+            linha = self._lista_faixas.itemWidget(item)
+            if linha is not None:
+                faixa = item.data(Qt.UserRole)
+                linha.definir_voto(playlists_mod.voto_local(faixa["titulo"], faixa["artista"], votos))
 
     def _filtrar_faixas(self, texto):
         total = self._lista_faixas.count()
@@ -189,10 +281,19 @@ class ViewPlaylists(QWidget):
             item.setHidden(not mostrar)
             visiveis += mostrar
         self._rotulo_resultado.setText(f"{visiveis} de {total}" if texto.strip() else f"{total} faixas")
+        QTimer.singleShot(0, self._criar_linhas_visiveis)
 
     def _tocar_faixa_selecionada(self, item):
+        """Duplo clique toca a playlist a partir daquela faixa, com o resto
+        dela na fila (2026-10-14: tocava só a faixa e o Caos assumia em
+        seguida - "n ta seguindo a playlist")."""
+        origem = f"playlist:{self._playlist_atual}"
+        if self._ao_tocar_lista is not None:
+            faixas = [self._lista_faixas.item(i).data(Qt.UserRole) for i in range(self._lista_faixas.count())]
+            self._ao_tocar_lista(faixas[self._lista_faixas.row(item):], origem)
+            return
         faixa = item.data(Qt.UserRole)
-        self._ao_tocar(faixa["titulo"], faixa["artista"], origem=f"playlist:{self._playlist_atual}")
+        self._ao_tocar(faixa["titulo"], faixa["artista"], origem=origem)
 
     def atualizar(self):
         self._pilha.setCurrentIndex(0)

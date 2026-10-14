@@ -87,3 +87,12 @@ def test_salvar_nao_deixa_temporario():
     playlists_mod.criar("Treino")
     import os
     assert not os.path.exists(playlists_mod.ARQUIVO_PLAYLISTS + ".tmp")
+
+
+def test_votos_locais_e_voto_local():
+    playlists_mod.registrar_voto("Doomsday", "MF DOOM", positivo=True)
+    playlists_mod.registrar_voto("Rapp Snitch Knishes", "MF DOOM", positivo=False)
+    votos = playlists_mod.votos_locais()
+    assert playlists_mod.voto_local("doomsday ", "mf doom", votos) == "positivo"
+    assert playlists_mod.voto_local("Rapp Snitch Knishes", "MF DOOM") == "negativo"
+    assert playlists_mod.voto_local("Accordion", "Madvillain", votos) is None
