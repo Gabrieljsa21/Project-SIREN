@@ -4,6 +4,8 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-14
+
 ### Adicionado
 
 - **Curtir/não curtir na lista de uma playlist (2026-10-14)** - pedido do usuário. Cada faixa da playlist aberta mostra o mesmo par ❤️/👎 da Fila, marcado conforme o voto atual; clicar alterna entre sem voto, curtida e não curtida (reclicar no marcado tira o voto). O voto segue o mesmo caminho da Fila (ECHO + Músicas Curtidas/Não Curtidas), e voto dado no player aparece na lista aberta. As linhas com botões são criadas só para o que aparece na tela, para Não Curtidas (quase mil faixas) abrir sem travar. `core/playlists.votos_locais`/`voto_local` passam a ser a consulta única de voto local, usada também pelo controlador.
