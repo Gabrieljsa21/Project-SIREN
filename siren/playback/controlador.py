@@ -236,12 +236,7 @@ class ControladorReproducao(QObject):
     @staticmethod
     def voto_local(titulo, artista):
         """Voto pelas playlists locais: instantâneo, sem esperar o ECHO."""
-        chave = id_faixa(titulo, artista)
-        if any(id_faixa(f["titulo"], f["artista"]) == chave for f in playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_CURTIDAS)):
-            return "positivo"
-        if any(id_faixa(f["titulo"], f["artista"]) == chave for f in playlists_mod.obter_faixas(playlists_mod.NOME_PLAYLIST_NAO_CURTIDAS)):
-            return "negativo"
-        return None
+        return playlists_mod.voto_local(titulo, artista)
 
     def _definir_tocando(self, tocando):
         if tocando != self.tocando:

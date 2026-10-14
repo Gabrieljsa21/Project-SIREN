@@ -168,6 +168,24 @@ def remover_voto(titulo, artista):
     remover_faixa(NOME_PLAYLIST_NAO_CURTIDAS, titulo, artista)
 
 
+def votos_locais():
+    """`{id da faixa: "positivo"|"negativo"}` a partir das duas playlists de
+    voto, lidas uma vez só - pra marcar o voto de muitas faixas de uma vez
+    (lista de uma playlist, 2026-10-14) sem varrer as coleções por faixa."""
+    playlists = carregar()
+    votos = {}
+    for nome, voto in ((NOME_PLAYLIST_NAO_CURTIDAS, "negativo"), (NOME_PLAYLIST_CURTIDAS, "positivo")):
+        for faixa in playlists.get(nome, []):
+            votos[_track_id(faixa["titulo"], faixa["artista"])] = voto
+    return votos
+
+
+def voto_local(titulo, artista, votos=None):
+    """Voto de uma faixa pelas playlists locais (instantâneo, sem esperar o
+    ECHO). Passe `votos` (de `votos_locais`) ao consultar várias faixas."""
+    return (votos if votos is not None else votos_locais()).get(_track_id(titulo, artista))
+
+
 def registrar_voto(titulo, artista, positivo):
     """Mantém os votos em duas playlists especiais e mutuamente exclusivas.
 

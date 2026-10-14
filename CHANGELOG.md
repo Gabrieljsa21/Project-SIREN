@@ -6,6 +6,8 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 
 ### Adicionado
 
+- **Curtir/não curtir na lista de uma playlist (2026-10-14)** - pedido do usuário. Cada faixa da playlist aberta mostra o mesmo par ❤️/👎 da Fila, marcado conforme o voto atual; clicar alterna entre sem voto, curtida e não curtida (reclicar no marcado tira o voto). O voto segue o mesmo caminho da Fila (ECHO + Músicas Curtidas/Não Curtidas), e voto dado no player aparece na lista aberta. As linhas com botões são criadas só para o que aparece na tela, para Não Curtidas (quase mil faixas) abrir sem travar. `core/playlists.votos_locais`/`voto_local` passam a ser a consulta única de voto local, usada também pelo controlador.
+
 - **Botão de fila no miniplayer (2026-10-06)** - pedido do usuário. O ícone de fila, ao lado do botão de abrir o Modo Completo, troca a capa por uma lista compacta da fila (título e artista). Clicar numa faixa toca ela e a tira da fila; o clique direito remove. A lista acompanha a fila em tempo real, inclusive o reabastecimento do Caos. A tabela da tela Fila do Modo Completo não cabe na largura do miniplayer, por isso é uma lista própria.
 - **Log do player (2026-10-06)** - pedido do usuário ("um log das músicas passando e tudo que tá acontecendo"). `siren/core/registro.py` grava em `logs/AAAA-MM-DD.log`, uma linha por evento com horário: faixa que começou (origem, voto atual e tamanho da fila), pedidos de faixas ao ECHO pelo Caos, faixa enfileirada ou ignorada por repetição, ECHO sem faixa nova, falha ao achar a faixa no YouTube e votos. De onde cada sugestão do Caos veio fica no log do ECHO. A pasta `logs/` está no `.gitignore`.
 
@@ -53,6 +55,8 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 - **Coleção automática "Descobertas do SIREN" (2026-09-25)** - era um subconjunto quase idêntico de Músicas Curtidas (só as curtidas de faixas vindas do ECHO: 231 de 232 faixas), sem valor próprio, e ainda mantinha faixas descurtidas depois. Saiu da sidebar, dos cartões da Home e da importação de votos do ECHO; `playlists.remover_descobertas_legada()` apaga a playlist antiga do `data/playlists.json` na abertura do Modo Completo. Nenhuma faixa se perde, porque todas já estavam em Músicas Curtidas.
 
 ### Corrigido
+
+- **Playlist não seguia depois da faixa clicada (2026-10-14)** - duplo clique numa faixa da playlist tocava só ela, e o Caos assumia em seguida. Agora toca a partir dela e põe o resto da playlist na fila (substituindo a fila atual, igual ao ▶ dos cartões da Home).
 
 - **Importar playlist pelo link de um vídeo dela (2026-10-14)** - o link copiado com um vídeo da playlist aberto (`watch?v=...&list=...`) importava zero faixas: com `extract_flat`, o yt-dlp trata esse link como um vídeo só, sem lista de itens. O importador agora extrai o parâmetro `list` e usa o link da playlist em si.
 
