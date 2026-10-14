@@ -16,6 +16,7 @@ from siren.ui.full.widgets import PainelAcoesFaixa
 
 
 ALTURA_LINHA = 40
+LADO_BOTAO_VOTO = 24
 
 
 def _normalizar(texto):
@@ -48,8 +49,13 @@ class LinhaFaixa(QWidget):
         layout.setSpacing(2)
         layout.addWidget(texto, stretch=1)
         self._curtir, self._nao_curtir = faixas_ui.botoes_voto(voto, self._votar)
-        layout.addWidget(self._curtir)
-        layout.addWidget(self._nao_curtir)
+        # A linha só tem ALTURA_LINHA menos o padding do item da lista (8 px
+        # em cima e embaixo): o botão de 30 px da Fila ficava cortado.
+        for botao in (self._curtir, self._nao_curtir):
+            botao.setFixedSize(LADO_BOTAO_VOTO, LADO_BOTAO_VOTO)
+            botao.setIconSize(QSize(14, 14))
+            botao.setStyleSheet(f"border-radius: {LADO_BOTAO_VOTO // 2}px;")
+            layout.addWidget(botao)
         self.definir_voto(voto)
 
     def definir_voto(self, voto):
