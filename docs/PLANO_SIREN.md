@@ -201,7 +201,10 @@ implementações de player.
   permanente no topo, playlists na biblioteca lateral e player persistente
   embaixo. Fila e Letras são ferramentas abertas pelo player, não abas de
   navegação. `Músicas Curtidas` e `Não Curtidas` são playlists especiais,
-  atualizadas automaticamente pelos votos ❤️/👎 e sincronizadas com o ECHO.
+  atualizadas automaticamente pelos votos ❤️/👎 e sincronizadas com o ECHO
+  (na abertura, com nova tentativa a cada 15 s enquanto o ECHO não responde).
+  `data/playlists.json` é gravado de forma atômica e tem cópia `.bak`, usada
+  se o arquivo principal estiver ilegível (2026-10-13).
 - `core/config.py::modo_ui` decide qual abre por padrão; `--lite`/`--full`
   sobrescreve na hora sem mexer na configuração salva.
 - **Um controlador só** (`playback/controlador.py`, 2026-09-26): fila, Caos
