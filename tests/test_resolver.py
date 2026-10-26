@@ -47,14 +47,24 @@ def test_extrair_resultados_busca_ignora_entrada_invalida_e_prioriza_artista():
     info = {"entries": [
         None,
         {"uploader": "Sem título"},
-        {"title": "Faixa A", "artist": "Artista A", "uploader": "Canal A", "duration": 123},
-        {"title": "Faixa B", "channel": "Canal B"},
+        {"title": "Faixa A", "artist": "Artista A", "uploader": "Canal A", "duration": 123,
+         "view_count": 1800, "timestamp": 1600000000, "url": "https://www.youtube.com/watch?v=a"},
+        {"title": "Faixa B", "channel": "Canal B", "id": "b"},
     ]}
 
     assert resolver.extrair_resultados_busca(info) == [
-        {"titulo": "Faixa A", "artista": "Artista A", "duracao": 123},
-        {"titulo": "Faixa B", "artista": "Canal B", "duracao": None},
+        {"titulo": "Faixa A", "artista": "Artista A", "duracao": 123, "canal": "Canal A",
+         "visualizacoes": 1800, "data": 1600000000, "url": "https://www.youtube.com/watch?v=a"},
+        {"titulo": "Faixa B", "artista": "Canal B", "duracao": None, "canal": "Canal B",
+         "visualizacoes": None, "data": None, "url": "b"},
     ]
+
+
+def test_extrair_detalhes_video_usa_upload_date_sem_timestamp():
+    detalhes = resolver.extrair_detalhes_video({"like_count": 51817, "upload_date": "20241026"})
+    assert detalhes["curtidas"] == 51817
+    assert time.strftime("%Y-%m-%d", time.localtime(detalhes["data"])) == "2024-10-26"
+    assert resolver.extrair_detalhes_video(None) == {"curtidas": None, "data": None}
 
 
 def test_buscar_faixas_vazia_nao_abre_youtube(monkeypatch):

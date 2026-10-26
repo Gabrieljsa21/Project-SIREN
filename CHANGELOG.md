@@ -4,6 +4,12 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-26
+
+### Adicionado
+
+- **Busca mostra canal, visualizações, data, curtidas e duração (2026-10-26)** - pedido do usuário ("igual youtube"). Cada resultado da tela Busca virou uma linha de três níveis: título; "7,4 mi visualizações · há 2 anos · 51 mil curtidas"; e o canal, com a duração à direita. Visualizações, canal, duração e uma data aproximada já vêm na própria busca (o yt-dlp converte o "há 2 anos" do YouTube com `approximate_date`). Curtidas e a data exata exigem abrir cada vídeo (cerca de 2 s), então `resolver.detalhes_video` roda em segundo plano para os 5 resultados em paralelo e preenche cada linha assim que responde, sem atrasar a lista; respostas de uma busca anterior são descartadas. Vídeo com restrição de idade ou curtidas ocultas fica sem a contagem. Números no formato do YouTube em português, truncados como lá ("1,8 mil", "7,4 mi"). Validado ao vivo com a busca "cópia proibida".
+
 ## [0.2.0] - 2026-10-14
 
 ### Adicionado

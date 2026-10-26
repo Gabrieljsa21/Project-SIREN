@@ -12,6 +12,7 @@ import os
 import time
 import urllib.parse
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
 
 import yt_dlp
@@ -133,24 +134,34 @@ def extrair_resultados_busca(info):
     """Converte a resposta de ``ytsearch`` em faixas exibíveis na Busca.
 
     A reprodução resolve o stream novamente só quando o usuário escolhe um
-    resultado; a pesquisa não abre nem baixa áudio antecipadamente.
+    resultado; a pesquisa não abre nem baixa áudio antecipadamente. A data
+    que vem aqui é a aproximada do YouTube ("há 2 anos"), trocada pela exata
+    quando `detalhes_video` responde.
     """
     resultados = []
     for entrada in (info or {}).get("entries") or []:
         if not entrada or not entrada.get("title"):
             continue
-        artista = (
-            entrada.get("artist")
-            or entrada.get("uploader")
-            or entrada.get("channel")
-            or "Artista desconhecido"
-        )
+        canal = entrada.get("channel") or entrada.get("uploader")
+        artista = entrada.get("artist") or canal or "Artista desconhecido"
         resultados.append({
             "titulo": entrada["title"],
             "artista": artista,
             "duracao": entrada.get("duration"),
+            "canal": canal,
+            "visualizacoes": entrada.get("view_count"),
+            "data": entrada.get("timestamp"),
+            "url": entrada.get("url") or entrada.get("id"),
         })
     return resultados
+
+
+def _opcoes_busca():
+    opcoes = dict(OPCOES_BASE)
+    cookies = os.getenv("YOUTUBE_COOKIES_FILE")
+    if cookies and os.path.exists(cookies):
+        opcoes["cookiefile"] = cookies
+    return opcoes
 
 
 def buscar_faixas(texto, limite=5):
@@ -159,11 +170,14 @@ def buscar_faixas(texto, limite=5):
     if not texto:
         return []
     limite = max(1, min(20, int(limite)))
-    opcoes = dict(OPCOES_BASE)
-    opcoes.update({"extract_flat": "in_playlist", "skip_download": True})
-    cookies = os.getenv("YOUTUBE_COOKIES_FILE")
-    if cookies and os.path.exists(cookies):
-        opcoes["cookiefile"] = cookies
+    opcoes = _opcoes_busca()
+    opcoes.update({
+        "extract_flat": "in_playlist",
+        "skip_download": True,
+        # Sem isso a busca não traz data nenhuma: o YouTube só manda o texto
+        # "há 2 anos", que o yt-dlp converte numa data aproximada.
+        "extractor_args": {**OPCOES_BASE["extractor_args"], "youtubetab": {"approximate_date": [""]}},
+    })
     try:
         with yt_dlp.YoutubeDL(opcoes) as ydl:
             info = ydl.extract_info(f"ytsearch{limite}:{texto}", download=False)
@@ -171,6 +185,31 @@ def buscar_faixas(texto, limite=5):
         print(f"[SIREN] Falha na busca (\"{texto}\"): {e}")
         return []
     return extrair_resultados_busca(info)
+
+
+def extrair_detalhes_video(info):
+    """Parte pura de `detalhes_video`: curtidas (`None` quando o canal
+    esconde) e a data exata de publicação como timestamp."""
+    info = info or {}
+    data = info.get("timestamp")
+    if data is None and info.get("upload_date"):
+        try:
+            data = datetime.strptime(info["upload_date"], "%Y%m%d").timestamp()
+        except ValueError:
+            data = None
+    return {"curtidas": info.get("like_count"), "data": data}
+
+
+def detalhes_video(url):
+    """Abre a página do vídeo só pelos dados que a busca não traz (cerca de
+    2 s por vídeo), sem resolver formato de áudio."""
+    try:
+        with yt_dlp.YoutubeDL(_opcoes_busca()) as ydl:
+            info = ydl.extract_info(url, download=False, process=False)
+    except Exception as e:
+        print(f"[SIREN] Falha ao ler detalhes do vídeo ({url}): {e}")
+        return {"curtidas": None, "data": None}
+    return extrair_detalhes_video(info)
 
 
 def stream_expirado(resolved_stream):
