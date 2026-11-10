@@ -18,6 +18,9 @@ dist/
 data/*.json
 data/*.json.bak
 data/*.json.tmp
+data/*.tmp
+data/downloads/
+data/backups/
 
 # Log do player (siren/core/registro.py)
 logs/

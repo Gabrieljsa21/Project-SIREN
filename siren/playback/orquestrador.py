@@ -14,23 +14,34 @@ from siren.playback import resolver as resolver_mod
 from siren.playback.resolver import ResolvedStream
 
 
-def tocar_faixa(player, titulo, artista, origem="fila"):
-    """Devolve o `ResolvedStream` tocado (local ou resolvido pela rede), ou
-    `None` se não achou em lugar nenhum - quem chama decide como comunicar
-    a falha na UI (nunca inventa uma faixa). Um `ResolvedStream` devolvido é
-    sempre "verdadeiro" em teste booleano (`if not resolvido`), então quem só
-    precisa saber sucesso/falha pode tratar como antes."""
+def resolver_faixa(titulo, artista, url=None):
+    """Só acha o áudio (arquivo baixado, senão a rede), sem tocar - pode
+    levar segundos, então o controlador chama isto fora da thread da
+    interface. `None` se não achou em lugar nenhum. `url`: vídeo exato
+    escolhido na tela Busca."""
     caminho_local = downloads_mod.obter_caminho_local(titulo, artista)
     if caminho_local:
-        resolved = ResolvedStream(
+        return ResolvedStream(
             url=caminho_local, title=titulo, artist=artista,
             duration=None, thumbnail=None, source="local", expires_at=float("inf"),
         )
-    else:
-        resolved = resolver_mod.resolver_stream(titulo, artista)
-        if resolved is None:
-            return None
+    if url:
+        return resolver_mod.resolver_stream(titulo, artista, url=url)
+    return resolver_mod.resolver_stream(titulo, artista)
 
+
+def tocar_resolvido(player, resolved, titulo, artista, origem="fila"):
+    """Toca um áudio já achado e registra no histórico local."""
     player.tocar(resolved)
     historico_mod.registrar(titulo, artista, origem=origem)
+
+
+def tocar_faixa(player, titulo, artista, origem="fila"):
+    """Acha e toca de uma vez (bloqueia enquanto resolve). Devolve o
+    `ResolvedStream` tocado, ou `None` se não achou em lugar nenhum - quem
+    chama decide como comunicar a falha na UI (nunca inventa uma faixa)."""
+    resolved = resolver_faixa(titulo, artista)
+    if resolved is None:
+        return None
+    tocar_resolvido(player, resolved, titulo, artista, origem=origem)
     return resolved

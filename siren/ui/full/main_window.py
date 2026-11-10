@@ -1210,8 +1210,9 @@ class FullWindow(QWidget):
         self._capa_player.setPixmap(arte.recortar_quadrado_arredondado(imagem, LADO_CAPA_PLAYER, 8))
 
     # Atalhos usados pelas telas (Início, Fila, Artista...): tudo vai pro controlador.
-    def _tocar_faixa(self, titulo, artista, origem="fila"):
-        self._ctrl.tocar_faixa(titulo, artista, origem=origem)
+    def _tocar_faixa(self, titulo, artista, origem="fila", url=None):
+        """`url`: vídeo exato, quando a faixa veio de um resultado da Busca."""
+        self._ctrl.tocar_faixa(titulo, artista, origem=origem, url=url)
 
     def _iniciar_caos(self, *_):
         """Botões de Caos (o `clicked` do Qt manda um `checked` junto)."""

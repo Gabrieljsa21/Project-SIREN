@@ -17,6 +17,8 @@ from typing import Optional
 
 import yt_dlp
 
+from siren.core.registro import registrar
+
 OPCOES_BASE = {
     "format": "bestaudio/best",
     "noplaylist": True,
@@ -70,20 +72,37 @@ def extrair_resolved_stream(info, titulo, artista):
     )
 
 
-def resolver_stream(titulo, artista):
+def url_do_video(url_ou_id):
+    """A busca devolve às vezes só o id do vídeo: completa o endereço."""
+    if "://" in url_ou_id:
+        return url_ou_id
+    return f"https://www.youtube.com/watch?v={url_ou_id}"
+
+
+def resolver_stream(titulo, artista, url=None):
     """Busca no YouTube (aceita "artista título" como texto livre) e devolve
     o `ResolvedStream` do primeiro resultado, ou `None` se a busca falhar ou
-    não achar nada."""
-    opcoes = dict(OPCOES_BASE)
-    cookies = os.getenv("YOUTUBE_COOKIES_FILE")
-    if cookies and os.path.exists(cookies):
-        opcoes["cookiefile"] = cookies
+    não achar nada.
+
+    `url`: vídeo exato (resultado clicado na tela Busca). Antes o clique
+    mandava só título e canal, e uma nova pesquisa por texto podia tocar
+    outro vídeo. Se esse vídeo não tocar, cai na pesquisa por texto."""
+    opcoes = _opcoes_busca()
+    if url:
+        try:
+            with yt_dlp.YoutubeDL(opcoes) as ydl:
+                resolvido = extrair_resolved_stream(ydl.extract_info(url_do_video(url), download=False), titulo, artista)
+        except Exception as e:
+            registrar(f"ERRO do yt-dlp ao abrir {url} (\"{artista} - {titulo}\"): {e}")
+            resolvido = None
+        if resolvido is not None:
+            return resolvido
     query = montar_query(titulo, artista)
     try:
         with yt_dlp.YoutubeDL(opcoes) as ydl:
             info = ydl.extract_info(query, download=False)
     except Exception as e:
-        print(f"[SIREN] Falha ao resolver stream (\"{artista} - {titulo}\"): {e}")
+        registrar(f"ERRO do yt-dlp ao resolver \"{artista} - {titulo}\": {e}")
         info = None
     resolvido = extrair_resolved_stream(info, titulo, artista)
     if resolvido is None:
@@ -101,7 +120,8 @@ def _resolver_pelos_proximos_resultados(query, opcoes, titulo, artista):
         try:
             with yt_dlp.YoutubeDL(opcoes) as ydl:
                 resolvido = extrair_resolved_stream(ydl.extract_info(url, download=False), titulo, artista)
-        except Exception:
+        except Exception as e:
+            registrar(f"ERRO do yt-dlp no plano B ({url}) de \"{artista} - {titulo}\": {e}")
             continue
         if resolvido is not None:
             return resolvido
@@ -121,7 +141,7 @@ def _candidatos(query, opcoes):
             with yt_dlp.YoutubeDL(opcoes_lista) as ydl:
                 lista = ydl.extract_info(busca, download=False)
         except Exception as e:
-            print(f"[SIREN] Falha ao listar resultados ({busca}): {e}")
+            registrar(f"ERRO do yt-dlp ao listar resultados ({busca}): {e}")
             continue
         for entrada in ((lista or {}).get("entries") or [])[:RESULTADOS_PLANO_B]:
             url = entrada and (entrada.get("url") or entrada.get("id"))
@@ -182,7 +202,7 @@ def buscar_faixas(texto, limite=5):
         with yt_dlp.YoutubeDL(opcoes) as ydl:
             info = ydl.extract_info(f"ytsearch{limite}:{texto}", download=False)
     except Exception as e:
-        print(f"[SIREN] Falha na busca (\"{texto}\"): {e}")
+        registrar(f"ERRO do yt-dlp na busca \"{texto}\": {e}")
         return []
     return extrair_resultados_busca(info)
 
@@ -207,7 +227,7 @@ def detalhes_video(url):
         with yt_dlp.YoutubeDL(_opcoes_busca()) as ydl:
             info = ydl.extract_info(url, download=False, process=False)
     except Exception as e:
-        print(f"[SIREN] Falha ao ler detalhes do vídeo ({url}): {e}")
+        registrar(f"ERRO do yt-dlp ao ler detalhes do vídeo ({url}): {e}")
         return {"curtidas": None, "data": None}
     return extrair_detalhes_video(info)
 

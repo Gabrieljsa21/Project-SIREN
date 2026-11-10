@@ -18,6 +18,9 @@ import os
 import json
 import yt_dlp
 
+from siren.core.arquivos import gravar_json
+from siren.core.registro import registrar
+
 from siren.core import config as config_mod
 from siren.playback.resolver import montar_query, OPCOES_BASE
 
@@ -39,9 +42,7 @@ def _carregar_manifesto():
 
 
 def _salvar_manifesto(manifesto):
-    os.makedirs(os.path.dirname(ARQUIVO_MANIFESTO), exist_ok=True)
-    with open(ARQUIVO_MANIFESTO, "w", encoding="utf-8") as f:
-        json.dump(manifesto, f, ensure_ascii=False, indent=2)
+    gravar_json(ARQUIVO_MANIFESTO, manifesto)
 
 
 def esta_baixada(titulo, artista):
@@ -106,7 +107,7 @@ def baixar(titulo, artista):
                 return None
             caminho = ydl.prepare_filename(info)
     except Exception as e:
-        print(f"[SIREN] Falha ao baixar (\"{artista} - {titulo}\"): {e}")
+        registrar(f"ERRO ao baixar \"{artista} - {titulo}\": {e}")
         return None
 
     if not os.path.exists(caminho):

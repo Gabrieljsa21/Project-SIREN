@@ -66,6 +66,8 @@ O modo padrão fica em `data/config.json`. Use `iniciar_siren_oculto.vbs` para a
 
 O SIREN entrega o som. O ECHO ajuda a decidir o que merece voltar. O player, a biblioteca e os recursos locais do SIREN continuam funcionando sem essa integração.
 
+Curtir e não curtir valem na hora no SIREN. Se o ECHO estiver desligado, o voto fica guardado em `data/votos_pendentes.json` e é enviado sozinho na próxima vez que o ECHO responder (ao abrir o SIREN ou no voto seguinte).
+
 ## Documentação
 
 - [Plano do projeto](docs/PLANO_SIREN.md)

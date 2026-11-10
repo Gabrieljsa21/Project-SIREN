@@ -22,6 +22,8 @@ import json
 import os
 import time
 
+from siren.core.arquivos import gravar_json
+
 ARQUIVO_SESSAO = "data/sessao.json"
 ARQUIVO_JANELA = "data/janela.json"
 ARQUIVO_JANELA_MINI = "data/janela_mini.json"
@@ -29,11 +31,7 @@ ARQUIVO_TROCA = "data/troca_de_modo.json"
 
 
 def _gravar(caminho, dados):
-    os.makedirs(os.path.dirname(caminho) or ".", exist_ok=True)
-    temporario = f"{caminho}.{os.getpid()}.tmp"
-    with open(temporario, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=2)
-    os.replace(temporario, caminho)
+    gravar_json(caminho, dados)
 
 
 def _ler(caminho):

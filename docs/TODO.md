@@ -12,11 +12,19 @@
 - **Resolver avançado + múltiplas fontes + cache/fallback** (v2 do roadmap)
   - só faz sentido depois que o resto estiver estável. Status: não
   iniciado.
-- **Confirmar auto-avanço do Caos com faixa real até o fim** (2026-09-06) -
-  `Player.observar_fim_de_faixa` foi verificado só até o registro da API
-  (sem erro, contra o código-fonte real do python-mpv) - nunca vi uma
-  faixa tocar até o fim de verdade e confirmar que a próxima começa
-  sozinha. Status: aguardando confirmação do usuário.
+- **Dividir `siren/ui/full/main_window.py`** (2026-11-09) - 1.242 linhas
+  numa classe só (barra do player, sidebar, navegação, redimensionamento).
+  Extrair a barra do player e a sidebar para módulos próprios. Mexe em
+  layout sem teste visual automático, então precisa de conferência na tela
+  a cada passo. Complexidade: média. Status: não iniciado.
+- **Testes e lint automáticos no GitHub (CI)** (2026-11-09) - hoje rodam só
+  à mão (`pytest`, `ruff`). O runner precisa de Windows (dependências
+  `winrt-*`). Complexidade: baixa. Status: não iniciado.
+- **Resolver em processo separado** (2026-11-09) - o yt-dlp agora roda em
+  thread, mas ainda disputa o interpretador com a interface: medido ao
+  vivo, pausas de até 0,9 s (antes a janela parava os 8 s inteiros). Um
+  processo auxiliar zeraria isso. Só vale se a pausa incomodar.
+  Complexidade: média. Status: não iniciado.
 - **Duplo clique pra maximizar pode ter ficado instável com
   `startSystemMove()`** (2026-09-06) - trocar o arrasto manual pelo
   arrasto nativo pode interferir na detecção de duplo clique do Qt, já

@@ -17,7 +17,11 @@ Reúne:
 - retomar a última faixa ao reabrir (`core/sessao.py`), carregada pausada;
 - eventos de reprodução pro LOKI (`integrations/loki_events.py`);
 - teclas multimídia do teclado e painel de mídia do Windows
-  (`integrations/midia_windows.py`)."""
+  (`integrations/midia_windows.py`).
+
+Nada aqui espera a rede na thread da interface: achar o áudio de uma faixa
+(yt-dlp, alguns segundos) e mandar votos ao ECHO rodam em `QThread`, e a
+próxima faixa da fila já fica resolvida enquanto a atual toca."""
 import os
 import re
 import time
@@ -33,6 +37,7 @@ from siren.core import downloads as downloads_mod
 from siren.core import playlists as playlists_mod
 from siren.core.registro import registrar
 from siren.core import sessao as sessao_mod
+from siren.core import votos_pendentes as votos_pendentes_mod
 from siren.core.fila import Fila
 from siren.integrations import echo_client
 from siren.integrations.loki_events import PublicadorPlayback
@@ -48,6 +53,10 @@ INTERVALO_PROGRESSO_MS = 500
 LIMITE_POSICAO_PARADA = 4  # segundos tocando sem a posição andar
 INTERVALO_SALVAR_SESSAO = 10  # s - um encerramento forçado não passa pelo closeEvent
 LIMITE_TROCA_DE_MODO = 30  # s esperando a outra janela assumir antes de desistir e seguir tocando aqui
+LIMITE_SEM_TOCAR = 20  # s com o MPV sem tocar depois de recriar a saída de áudio: resolve a faixa de novo
+MAXIMO_FALHAS_SEGUIDAS = 5  # faixas seguidas sem resolver (sem internet?): para de tentar a próxima
+MAXIMO_PRE_RESOLVIDAS = 3
+ESPERA_REENVIO_VOTOS_MS = 3000  # depois de abrir, manda ao ECHO os votos que ficaram pendentes
 
 
 def id_faixa(titulo, artista):
@@ -132,6 +141,39 @@ class _CaosWorker(QThread):
             self.sem_resultado.emit(self._geracao)
 
 
+class _ResolverWorker(QThread):
+    """Acha o áudio de uma faixa fora da GUI thread (arquivo baixado
+    primeiro, senão yt-dlp). Emite a chave da faixa e o `ResolvedStream`,
+    ou `None`."""
+
+    concluido = Signal(str, object)
+
+    def __init__(self, chave, titulo, artista, url=None, parent=None):
+        super().__init__(parent)
+        self._chave = chave
+        self._titulo = titulo
+        self._artista = artista
+        self._url = url
+
+    def run(self):
+        try:
+            resolvido = orquestrador.resolver_faixa(self._titulo, self._artista, self._url)
+        except Exception as e:
+            registrar(f"ERRO inesperado ao resolver {self._artista} - {self._titulo}: {e}")
+            resolvido = None
+        self.concluido.emit(self._chave, resolvido)
+
+
+class _EnviarVotosWorker(QThread):
+    """Manda ao ECHO os votos da fila de pendentes, fora da GUI thread."""
+
+    def run(self):
+        try:
+            votos_pendentes_mod.enviar_pendentes()
+        except Exception as e:
+            registrar(f"ERRO ao enviar votos ao ECHO: {e}")
+
+
 class _ResolverRetomadaWorker(QThread):
     """Resolve o áudio da faixa retomada fora da GUI thread (arquivo baixado
     primeiro, senão yt-dlp)."""
@@ -160,6 +202,7 @@ class ControladorReproducao(QObject):
 
     # Callback do MPV chega na thread dele: Signal devolve pra GUI thread.
     _sinal_fim_de_faixa = Signal()
+    _sinal_erro_do_player = Signal()
 
     faixa_mudou = Signal(object)  # dict da faixa atual (ou None)
     progresso = Signal(float, float)  # posição, duração (segundos)
@@ -185,6 +228,9 @@ class ControladorReproducao(QObject):
         self.player.definir_volume(config_mod.obter("volume_inicial"))
         self.player.observar_fim_de_faixa(self._sinal_fim_de_faixa.emit)
         self._sinal_fim_de_faixa.connect(self._ao_fim_de_faixa)
+        if hasattr(self.player, "observar_erro"):
+            self.player.observar_erro(self._sinal_erro_do_player.emit)
+        self._sinal_erro_do_player.connect(self._ao_erro_do_player)
 
         self.faixa_atual = None
         self.duracao = 0
@@ -195,6 +241,15 @@ class ControladorReproducao(QObject):
         self._excluidos_sessao = []
         self._duracao_registrada = True
         self._encerrado = False
+
+        self._pedido = None  # faixa pedida, esperando o áudio ser achado (só a mais recente vale)
+        self._resolvendo = {}  # chave da faixa -> worker em andamento
+        self._pre_resolvidas = {}  # chave -> ResolvedStream da próxima da fila, achado com antecedência
+        self._falhas_seguidas = 0
+        self._recuperou_faixa = False  # a faixa atual já foi resolvida de novo depois de uma falha do MPV
+        self._ultima_posicao_real = 0.0  # última posição que o MPV informou de verdade
+        self._worker_votos = None
+        self._reenviar_votos = False
 
         self._retomada = None  # {"faixa", "posicao"} enquanto o áudio da faixa retomada não está carregado
         self._tocar_ao_retomar = False
@@ -227,6 +282,8 @@ class ControladorReproducao(QObject):
             self._midia.botao.connect(self._ao_tecla_midia)
             self.faixa_mudou.connect(lambda faixa: self._atualizar_midia())
             self.tocando_mudou.connect(self._midia.definir_tocando)
+
+        QTimer.singleShot(ESPERA_REENVIO_VOTOS_MS, self, self._enviar_votos_que_ficaram)
 
     # ---------------- utilitários ----------------
 
@@ -286,34 +343,160 @@ class ControladorReproducao(QObject):
 
     # ---------------- tocar ----------------
 
-    def tocar_faixa(self, titulo, artista, origem="fila"):
+    def tocar_faixa(self, titulo, artista, origem="fila", url=None, ao_falhar=None):
+        """Pede a faixa: o áudio é achado em segundo plano e ela começa
+        quando ficar pronto (na hora, se já foi resolvida com antecedência).
+        Até lá a faixa anterior segue tocando e a janela continua
+        respondendo. Um pedido novo substitui o anterior.
+
+        `url`: vídeo exato (resultado clicado na Busca). `ao_falhar`: o que
+        fazer se a faixa não resolver (avançar na fila); sem ele, só avisa."""
         self._retomada = None
         self._tocar_ao_retomar = False
         self._retomada_carregada_pausada = False
-        resolvido = orquestrador.tocar_faixa(self.player, titulo, artista, origem=origem)
-        if resolvido is None:
-            registrar(f"ERRO ao resolver no YouTube: {artista} - {titulo} ({origem})")
-            self._excluidos_sessao.append(id_faixa(titulo, artista))  # o Caos não sugere de novo nesta sessão
+        chave = id_faixa(titulo, artista)
+        self._pedido = {"chave": chave, "titulo": titulo, "artista": artista, "origem": origem, "ao_falhar": ao_falhar}
+        pronto = self._pre_resolvidas.pop(chave, None) if url is None else None
+        if pronto is not None and not resolver_mod.stream_expirado(pronto):
+            self._ao_resolver(chave, pronto)
+            return
+        self.mensagem.emit(f"Carregando {artista} - {titulo}…")
+        self._despachar_resolucao(chave, titulo, artista, url)
+
+    def _despachar_resolucao(self, chave, titulo, artista, url=None):
+        if chave in self._resolvendo:
+            return  # já a caminho (pré-resolução): o resultado serve ao pedido
+        worker = _ResolverWorker(chave, titulo, artista, url, self)
+        worker.concluido.connect(self._ao_resolver)
+        worker.finished.connect(worker.deleteLater)
+        self._resolvendo[chave] = worker
+        worker.start()
+
+    def _ao_resolver(self, chave, resolvido):
+        self._resolvendo.pop(chave, None)
+        if self._encerrado:
+            return
+        pedido = self._pedido
+        if pedido is None or pedido["chave"] != chave:
+            # Não é a faixa pedida agora: era a pré-resolução da próxima da fila.
+            if resolvido is not None and not resolver_mod.stream_expirado(resolvido):
+                self._pre_resolvidas[chave] = resolvido
+                while len(self._pre_resolvidas) > MAXIMO_PRE_RESOLVIDAS:
+                    self._pre_resolvidas.pop(next(iter(self._pre_resolvidas)))
+            return
+        self._pedido = None
+        if pedido.get("recuperacao"):
+            self._concluir_recuperacao(pedido, resolvido)
+        elif resolvido is None:
+            self._falhou_ao_resolver(pedido)
+        else:
+            self._comecar_faixa(pedido, resolvido)
+
+    def _falhou_ao_resolver(self, pedido):
+        titulo, artista, origem = pedido["titulo"], pedido["artista"], pedido["origem"]
+        registrar(f"ERRO ao resolver no YouTube: {artista} - {titulo} ({origem})")
+        self._excluidos_sessao.append(pedido["chave"])  # o Caos não sugere de novo nesta sessão
+        self._falhas_seguidas += 1
+        if pedido.get("ao_falhar") and self._falhas_seguidas < MAXIMO_FALHAS_SEGUIDAS:
+            self.mensagem.emit(f"Não consegui resolver \"{artista} - {titulo}\", tentando a próxima")
+            pedido["ao_falhar"]()
+            return
+        if self._falhas_seguidas >= MAXIMO_FALHAS_SEGUIDAS:
+            registrar(f"PAROU de tentar: {self._falhas_seguidas} faixas seguidas sem resolver")
+            self.mensagem.emit("Não consegui resolver várias faixas seguidas. Confira a internet")
+        else:
             self.mensagem.emit(f"Não consegui resolver \"{artista} - {titulo}\"")
-            return False
+        if getattr(self.player, "ocioso", False):
+            self._definir_tocando(False)  # a anterior já acabou: nada está tocando
+
+    def _comecar_faixa(self, pedido, resolvido):
+        titulo, artista, origem = pedido["titulo"], pedido["artista"], pedido["origem"]
+        orquestrador.tocar_resolvido(self.player, resolvido, titulo, artista, origem=origem)
+        self._falhas_seguidas = 0
+        self._recuperou_faixa = False
+        self._ultima_posicao_real = 0.0
+        self._ultima_posicao = None
+        self._posicao_mudou_em = time.monotonic()
         self.faixa_atual = {"titulo": titulo, "artista": artista, "origem": origem}
         self._historico_sessao.append(self.faixa_atual)
-        self._excluidos_sessao.append(id_faixa(titulo, artista))
+        self._excluidos_sessao.append(pedido["chave"])
         self.duracao = max(0, int(resolvido.duration or 0))
         self._duracao_registrada = bool(resolvido.duration)
         if resolvido.duration:
             cache_faixas_mod.registrar(titulo, artista, duracao=resolvido.duration)
         self.faixa_mudou.emit(self.faixa_atual)
         self._carregar_capa(getattr(resolvido, "thumbnail", None))
-        self._definir_voto(self.voto_local(titulo, artista))
+        voto = self.voto_local(titulo, artista)
+        self._definir_voto(voto)
         self._definir_tocando(True)
         self.progresso.emit(0.0, float(self.duracao))
         self._recarga_audio_feita = False
-        registrar(f"TOCANDO {artista} - {titulo} | origem: {origem} | voto: {self.voto_local(titulo, artista) or '-'} | fila: {len(self.fila.listar())}")
+        registrar(f"TOCANDO {artista} - {titulo} | origem: {origem} | voto: {voto or '-'} | fila: {len(self.fila.listar())}")
         if origem == "caos":
             self._garantir_fila_caos()
         self._eventos_loki.faixa_iniciada(titulo, artista, origem=origem, duracao=resolvido.duration)
-        return True
+        self._pre_resolver_proxima()
+
+    def _pre_resolver_proxima(self):
+        """Acha com antecedência o áudio da próxima faixa da fila, para a
+        troca ser imediata. Com o Aleatório ligado não há como saber qual
+        será a próxima."""
+        if self.aleatorio or self._encerrado:
+            return
+        proxima = next((f for f in self.fila.listar() if f.get("voto") != "negativo"), None)
+        if proxima is None:
+            return
+        chave = id_faixa(proxima["titulo"], proxima["artista"])
+        pronta = self._pre_resolvidas.get(chave)
+        if pronta is not None and not resolver_mod.stream_expirado(pronta):
+            return
+        self._despachar_resolucao(chave, proxima["titulo"], proxima["artista"])
+
+    # ---------------- falha do MPV no meio da faixa ----------------
+
+    def _ao_erro_do_player(self):
+        self._recuperar_faixa("erro do MPV")
+
+    def _recuperar_faixa(self, motivo):
+        """O MPV desistiu da faixa (endereço do YouTube vencido depois de
+        uma pausa longa, conexão que caiu): acha o áudio de novo e continua
+        do ponto em que estava. Se a mesma faixa falhar outra vez, pula."""
+        if not self.faixa_atual or self._retomada is not None or self._encerrado or self._pedido is not None:
+            return  # nada tocando, ou outra faixa já está a caminho
+        faixa = self.faixa_atual
+        if self._recuperou_faixa:
+            registrar(f"FAIXA falhou de novo ({motivo}), pulando: {faixa['artista']} - {faixa['titulo']}")
+            self._falhas_seguidas += 1
+            if self._falhas_seguidas < MAXIMO_FALHAS_SEGUIDAS:
+                self._tocar_proxima_da_fila()
+            else:
+                self._definir_tocando(False)
+                self.mensagem.emit("A reprodução falhou várias vezes seguidas. Confira a internet")
+            return
+        self._recuperou_faixa = True
+        registrar(f"RECUPERANDO {faixa['artista']} - {faixa['titulo']} em {self._ultima_posicao_real:.0f}s ({motivo})")
+        chave = id_faixa(faixa["titulo"], faixa["artista"])
+        self._pre_resolvidas.pop(chave, None)
+        self._pedido = {
+            "chave": chave, "titulo": faixa["titulo"], "artista": faixa["artista"], "origem": faixa.get("origem", "fila"),
+            "recuperacao": True, "inicio": self._ultima_posicao_real,
+        }
+        self._despachar_resolucao(chave, faixa["titulo"], faixa["artista"])
+
+    def _concluir_recuperacao(self, pedido, resolvido):
+        if resolvido is None:
+            registrar(f"ERRO ao recuperar {pedido['artista']} - {pedido['titulo']}: não resolveu")
+            self._falhas_seguidas += 1
+            if self._falhas_seguidas < MAXIMO_FALHAS_SEGUIDAS:
+                self._tocar_proxima_da_fila()
+            else:
+                self._definir_tocando(False)
+                self.mensagem.emit("A reprodução falhou várias vezes seguidas. Confira a internet")
+            return
+        self.player.tocar(resolvido, pausado=self.player.pausado, inicio=pedido["inicio"])
+        self._ultima_posicao = None
+        self._posicao_mudou_em = time.monotonic()
+        self._recarga_audio_feita = False
 
     def tocar_lista(self, faixas, origem):
         """Toca a 1ª faixa e põe o resto na fila, substituindo o que já
@@ -326,11 +509,12 @@ class ControladorReproducao(QObject):
         for faixa in faixas[1:]:
             self.fila.adicionar(faixa["titulo"], faixa["artista"], origem=origem)
         self.fila_mudou.emit()
-        self.tocar_faixa(faixas[0]["titulo"], faixas[0]["artista"], origem=origem)
+        self.tocar_faixa(faixas[0]["titulo"], faixas[0]["artista"], origem=origem, ao_falhar=self._tocar_proxima_da_fila)
 
     def enfileirar(self, faixa, origem):
         self.fila.adicionar(faixa["titulo"], faixa["artista"], origem=origem)
         self.fila_mudou.emit()
+        self._pre_resolver_proxima()
 
     def proxima(self, reciclar=True):
         """A fila local tem prioridade (docs/PLANO_SIREN.md: o SIREN manda na
@@ -343,14 +527,21 @@ class ControladorReproducao(QObject):
         if reciclar and self.repetir == "fila" and self.faixa_atual:
             atual = self.faixa_atual
             self.fila.adicionar(atual["titulo"], atual["artista"], origem=atual.get("origem", "fila"))
-        # Faixa que não resolve sai da fila e a seguinte é tentada na hora
-        # (2026-10-06: antes o 👎/pular parava na falha e a música atual
-        # seguia tocando, parecendo que o botão não funcionou).
-        while (proxima := self.fila.proxima(aleatorio=self.aleatorio)):
-            self.fila_mudou.emit()
-            if self.tocar_faixa(proxima["titulo"], proxima["artista"], origem=proxima.get("origem", "fila")):
-                return
-        self.iniciar_caos(semente=self.faixa_atual)
+        self._tocar_proxima_da_fila()
+
+    def _tocar_proxima_da_fila(self):
+        """Faixa que não resolve sai da fila e a seguinte é tentada na hora
+        (2026-10-06: antes o 👎/pular parava na falha e a música atual
+        seguia tocando, parecendo que o botão não funcionou). Fila vazia:
+        continua pelo Caos."""
+        proxima = self.fila.proxima(aleatorio=self.aleatorio)
+        if proxima is None:
+            self.iniciar_caos(semente=self.faixa_atual)
+            return
+        self.fila_mudou.emit()
+        self.tocar_faixa(
+            proxima["titulo"], proxima["artista"], origem=proxima.get("origem", "fila"), ao_falhar=self._tocar_proxima_da_fila,
+        )
 
     def anterior(self):
         if len(self._historico_sessao) < 2:
@@ -377,6 +568,14 @@ class ControladorReproducao(QObject):
             self._retomada_carregada_pausada = False
             self.player.alternar_pausa()
             self._iniciar_reproducao_retomada()
+            return
+        if not self.tocando and getattr(self.player, "ocioso", False):
+            # O MPV não tem mais a faixa (falhou e ficou parada): play acha
+            # o áudio de novo e continua de onde estava.
+            self._recuperou_faixa = False
+            self._falhas_seguidas = 0
+            self._definir_tocando(True)
+            self._recuperar_faixa("play com o MPV sem faixa")
             return
         self.player.alternar_pausa()
         self._definir_tocando(not self.player.pausado)
@@ -406,6 +605,8 @@ class ControladorReproducao(QObject):
                 cache_faixas_mod.registrar(self.faixa_atual["titulo"], self.faixa_atual["artista"], duracao=duracao_player)
                 self._duracao_registrada = True
         posicao = self.player.posicao_segundos or 0
+        if posicao:
+            self._ultima_posicao_real = float(posicao)
         self._vigiar_posicao_parada(posicao)
         self._eventos_loki.progresso(posicao, self.duracao)
         self.progresso.emit(float(posicao), float(self.duracao))
@@ -420,19 +621,34 @@ class ControladorReproducao(QObject):
         tocando normal - a linha do tempo parava e só o clique (seek)
         funcionava. Tocando, sem esperar rede e parada por
         `LIMITE_POSICAO_PARADA` s: grava o estado do MPV no log e recria a
-        saída de áudio, uma vez por faixa."""
+        saída de áudio, uma vez por faixa.
+
+        Segundo caso, visto nos logs: o MPV sem faixa nenhuma (`idle_active`)
+        ou parado de verdade (`core_idle`) com a interface ainda em
+        "tocando" - uma vez ficou 28 minutos assim. Recriar a saída de áudio
+        não resolve: a faixa é resolvida de novo (`_recuperar_faixa`)."""
         agora = time.monotonic()
         if posicao != self._ultima_posicao or not self.tocando or self.player.pausado:
             self._ultima_posicao = posicao
             self._posicao_mudou_em = agora
             return
-        if self._recarga_audio_feita or agora - self._posicao_mudou_em < LIMITE_POSICAO_PARADA:
-            return
+        parada_ha = agora - self._posicao_mudou_em
+        if parada_ha < LIMITE_POSICAO_PARADA or self._pedido is not None or self.aguardando_caos:
+            return  # com outra faixa a caminho, a atual pode só ter acabado
         diagnostico = self.player.diagnostico()
         if diagnostico.get("paused_for_cache") or diagnostico.get("seeking"):
             return  # esperando a rede: parar é normal
+        if diagnostico.get("idle_active") is True or (
+            self._recarga_audio_feita and diagnostico.get("core_idle") is True and parada_ha >= LIMITE_SEM_TOCAR
+        ):
+            registrar(f"MPV SEM TOCAR há {parada_ha:.0f}s em {posicao:.1f}s | {diagnostico}")
+            self._posicao_mudou_em = agora
+            self._recuperar_faixa("MPV parado")
+            return
+        if self._recarga_audio_feita:
+            return
         self._recarga_audio_feita = True
-        registrar(f"POSIÇÃO PARADA em {posicao:.1f}s há {agora - self._posicao_mudou_em:.0f}s, recarregando o áudio | {diagnostico}")
+        registrar(f"POSIÇÃO PARADA em {posicao:.1f}s há {parada_ha:.0f}s, recarregando o áudio | {diagnostico}")
         try:
             self.player.recarregar_audio()
         except Exception as e:
@@ -447,17 +663,43 @@ class ControladorReproducao(QObject):
         trocando o like e dislike qnd clica nele novamente")."""
         if positivo is None:
             registrar(f"VOTO removido: {faixa['artista']} - {faixa['titulo']}")
-            echo_client.remover_voto(faixa["artista"], faixa["titulo"])
             playlists_mod.remover_voto(faixa["titulo"], faixa["artista"])
             voto = None
         else:
             registrar(f"VOTO {'curtir' if positivo else 'não curtir'}: {faixa['artista']} - {faixa['titulo']}")
-            echo_client.enviar_feedback(faixa["artista"], faixa["titulo"], "positivo" if positivo else "negativo")
             playlists_mod.registrar_voto(faixa["titulo"], faixa["artista"], positivo=positivo)
             voto = "positivo" if positivo else "negativo"
+        # O ECHO recebe em segundo plano; se estiver fora do ar, o voto fica
+        # na fila de pendentes e vai na próxima vez.
+        votos_pendentes_mod.adicionar(faixa["titulo"], faixa["artista"], voto)
+        self._despachar_envio_votos()
         if self.faixa_atual and id_faixa(faixa["titulo"], faixa["artista"]) == id_faixa(self.faixa_atual["titulo"], self.faixa_atual["artista"]):
             self._definir_voto(voto)
         self.votos_mudaram.emit()
+
+    def _despachar_envio_votos(self):
+        if self._encerrado:
+            return
+        if self._worker_votos is not None:
+            self._reenviar_votos = True  # chegou voto novo durante o envio
+            return
+        worker = _EnviarVotosWorker(self)
+        worker.finished.connect(lambda w=worker: self._finalizar_envio_votos(w))
+        self._worker_votos = worker
+        worker.start()
+
+    def _finalizar_envio_votos(self, worker):
+        if worker is self._worker_votos:
+            self._worker_votos = None
+        worker.deleteLater()
+        if self._reenviar_votos:
+            self._reenviar_votos = False
+            self._despachar_envio_votos()
+
+    def _enviar_votos_que_ficaram(self):
+        """Ao abrir: votos dados com o ECHO fora do ar numa sessão anterior."""
+        if votos_pendentes_mod.listar():
+            self._despachar_envio_votos()
 
     def curtir(self):
         """Curtir de novo uma faixa já curtida tira o voto."""
@@ -542,11 +784,13 @@ class ControladorReproducao(QObject):
             return
         if self.aguardando_caos:
             self.aguardando_caos = False
-            self.tocar_faixa(faixa["titulo"], faixa["artista"], origem="caos")
+            self.tocar_faixa(faixa["titulo"], faixa["artista"], origem="caos", ao_falhar=self._tocar_proxima_da_fila)
             return
         self.fila.adicionar(faixa["titulo"], faixa["artista"], origem="caos")
         registrar(f"Caos: na fila: {faixa['artista']} - {faixa['titulo']} (fila: {len(self.fila.listar())})")
         self.fila_mudou.emit()
+        if self._pedido is None:
+            self._pre_resolver_proxima()
 
     def _ao_caos_sem_resultado(self, geracao):
         registrar("Caos: ECHO não devolveu nenhuma faixa (indisponível ou sem faixa nova)")
@@ -685,6 +929,14 @@ class ControladorReproducao(QObject):
             self.salvar_sessao(continuar=continuar and self.tocando)
         self._encerrado = True
         self._timer.stop()
+        self._pedido = None
+        # Threads ainda rodando quando o QObject morre derrubam o processo:
+        # espera um pouco as que estão no meio de uma chamada de rede.
+        prazo = time.monotonic() + 2.0
+        for worker in [self._worker_votos, *self._resolvendo.values()]:
+            if worker is not None and worker.isRunning():
+                worker.wait(max(1, int((prazo - time.monotonic()) * 1000)))
+        cache_faixas_mod.descarregar()
         if self._midia is not None:
             self._midia.encerrar()
         self._eventos_loki.faixa_encerrada("player_fechado")
