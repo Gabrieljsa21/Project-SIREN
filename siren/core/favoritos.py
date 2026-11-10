@@ -6,6 +6,8 @@ ECHO e nunca ajusta peso nenhum de perfil musical - isso é o ❤️/👎
 import os
 import json
 
+from siren.core.arquivos import gravar_json
+
 ARQUIVO_FAVORITOS = "data/favoritos.json"
 
 
@@ -24,9 +26,7 @@ def carregar():
 
 
 def _salvar(favoritos):
-    os.makedirs(os.path.dirname(ARQUIVO_FAVORITOS), exist_ok=True)
-    with open(ARQUIVO_FAVORITOS, "w", encoding="utf-8") as f:
-        json.dump(favoritos, f, ensure_ascii=False, indent=2)
+    gravar_json(ARQUIVO_FAVORITOS, favoritos)
 
 
 def esta_favoritada(titulo, artista):

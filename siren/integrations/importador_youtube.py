@@ -7,6 +7,8 @@ from urllib.parse import parse_qs, urlparse
 
 import yt_dlp
 
+from siren.core.registro import registrar
+
 _OPCOES = {"quiet": True, "no_warnings": True, "extract_flat": True, "skip_download": True}
 
 
@@ -32,7 +34,7 @@ def importar_playlist(url):
         with yt_dlp.YoutubeDL(_OPCOES) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception as e:
-        print(f"[SIREN] Falha ao importar playlist do YouTube ({url}): {e}")
+        registrar(f"ERRO ao importar playlist do YouTube ({url}): {e}")
         return []
     if not info:
         return []

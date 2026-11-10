@@ -12,6 +12,7 @@ from siren.core import downloads as downloads_mod
 from siren.core import cache_faixas as cache_faixas_mod
 from siren.core import sessao as sessao_mod
 from siren.core import registro as registro_mod
+from siren.core import votos_pendentes as votos_pendentes_mod
 
 
 @pytest.fixture(autouse=True)
@@ -23,6 +24,9 @@ def isolar_persistencia(tmp_path, monkeypatch):
     monkeypatch.setattr(downloads_mod, "ARQUIVO_MANIFESTO", str(tmp_path / "downloads.json"))
     monkeypatch.setattr(cache_faixas_mod, "ARQUIVO_CACHE", str(tmp_path / "cache_faixas.json"))
     monkeypatch.setattr(cache_faixas_mod, "_memoria", None)
+    monkeypatch.setattr(cache_faixas_mod, "INTERVALO_GRAVACAO", 0)
+    monkeypatch.setattr(votos_pendentes_mod, "ARQUIVO_PENDENTES", str(tmp_path / "votos_pendentes.json"))
+    monkeypatch.setattr(playlists_mod, "_cache_votos", None)
     monkeypatch.setattr(sessao_mod, "ARQUIVO_SESSAO", str(tmp_path / "sessao.json"))
     monkeypatch.setattr(sessao_mod, "ARQUIVO_JANELA", str(tmp_path / "janela.json"))
     monkeypatch.setattr(sessao_mod, "ARQUIVO_JANELA_MINI", str(tmp_path / "janela_mini.json"))

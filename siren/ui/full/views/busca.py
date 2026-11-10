@@ -232,4 +232,5 @@ class ViewBusca(QWidget):
     def _tocar_item(self, item):
         faixa = item.data(Qt.UserRole)
         if faixa:
-            self._ao_tocar(faixa["titulo"], faixa["artista"], origem="busca")
+            # Com o endereço do resultado, toca exatamente o vídeo clicado.
+            self._ao_tocar(faixa["titulo"], faixa["artista"], origem="busca", url=faixa.get("url"))

@@ -13,6 +13,8 @@ docs/PLANO_SIREN.md, seção "Modo Leve x Modo Completo"."""
 import os
 import json
 
+from siren.core.arquivos import gravar_json
+
 ARQUIVO_CONFIG = "data/config.json"
 
 PADRAO = {
@@ -75,9 +77,7 @@ def carregar():
 
 
 def salvar(config):
-    os.makedirs(os.path.dirname(ARQUIVO_CONFIG), exist_ok=True)
-    with open(ARQUIVO_CONFIG, "w", encoding="utf-8") as f:
-        json.dump(config, f, ensure_ascii=False, indent=2)
+    gravar_json(ARQUIVO_CONFIG, config)
 
 
 def obter(chave):

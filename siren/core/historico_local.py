@@ -10,6 +10,8 @@ import os
 import json
 from datetime import datetime
 
+from siren.core.arquivos import gravar_json
+
 ARQUIVO_HISTORICO = "data/historico_local.json"
 LIMITE_PADRAO = 500  # mais que suficiente pra alimentar a tela de Histórico; evita crescimento sem fim
 
@@ -25,9 +27,7 @@ def carregar():
 
 
 def _salvar(historico):
-    os.makedirs(os.path.dirname(ARQUIVO_HISTORICO), exist_ok=True)
-    with open(ARQUIVO_HISTORICO, "w", encoding="utf-8") as f:
-        json.dump(historico, f, ensure_ascii=False, indent=2)
+    gravar_json(ARQUIVO_HISTORICO, historico)
 
 
 def registrar(titulo, artista, origem="desconhecida", limite=LIMITE_PADRAO):

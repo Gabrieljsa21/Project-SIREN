@@ -30,6 +30,9 @@ class _PlayerFalso:
     def observar_fim_de_faixa(self, callback):
         self.fim = callback
 
+    def observar_erro(self, callback):
+        self.erro = callback
+
     def definir_volume(self, volume):
         pass
 
@@ -56,16 +59,21 @@ def _resolvido(titulo, artista):
                           source="teste", expires_at=0)
 
 
+def _sem_threads(monkeypatch):
+    """Resolve na hora, na própria chamada, e não manda voto nenhum ao ECHO:
+    os testes do controlador não dependem de thread nem de rede."""
+    monkeypatch.setattr(controlador_mod.orquestrador, "resolver_faixa", lambda titulo, artista, url=None: _resolvido(titulo, artista))
+
+    def resolver_na_hora(self, chave, titulo, artista, url=None):
+        self._ao_resolver(chave, controlador_mod.orquestrador.resolver_faixa(titulo, artista, url))
+
+    monkeypatch.setattr(controlador_mod.ControladorReproducao, "_despachar_resolucao", resolver_na_hora)
+    monkeypatch.setattr(controlador_mod.ControladorReproducao, "_despachar_envio_votos", lambda self: None)
+
+
 @pytest.fixture
 def controlador(monkeypatch):
-    def tocar_falso(player, titulo, artista, origem="fila"):
-        resolvido = _resolvido(titulo, artista)
-        player.tocar(resolvido)
-        return resolvido
-
-    monkeypatch.setattr(controlador_mod.orquestrador, "tocar_faixa", tocar_falso)
-    monkeypatch.setattr(controlador_mod.echo_client, "enviar_feedback", lambda *a, **k: None)
-    monkeypatch.setattr(controlador_mod.echo_client, "remover_voto", lambda *a, **k: None)
+    _sem_threads(monkeypatch)
     ctrl = controlador_mod.ControladorReproducao(player=_PlayerFalso(), midia=False)
     yield ctrl
     ctrl.encerrar()
@@ -107,12 +115,10 @@ def test_nao_curtir_pula_sem_reciclar_e_registra_o_voto(controlador):
 
 def test_proxima_pula_faixa_que_nao_resolve(controlador, monkeypatch):
     controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "ABC"], "playlist:P")
-    original = controlador_mod.orquestrador.tocar_faixa
-
-    def tocar_ou_falhar(player, titulo, artista, origem="fila"):
-        return None if titulo == "B" else original(player, titulo, artista, origem)
-
-    monkeypatch.setattr(controlador_mod.orquestrador, "tocar_faixa", tocar_ou_falhar)
+    monkeypatch.setattr(
+        controlador_mod.orquestrador, "resolver_faixa",
+        lambda titulo, artista, url=None: None if titulo == "B" else _resolvido(titulo, artista),
+    )
     controlador.nao_curtir()
     assert controlador.faixa_atual["titulo"] == "C"
     assert _titulos(controlador) == []
@@ -231,12 +237,7 @@ class _MidiaFalsa(controlador_mod.QObject):
 
 
 def test_teclas_multimidia_controlam_o_player(monkeypatch):
-    def tocar_falso(player, titulo, artista, origem="fila"):
-        resolvido = _resolvido(titulo, artista)
-        player.tocar(resolvido)
-        return resolvido
-
-    monkeypatch.setattr(controlador_mod.orquestrador, "tocar_faixa", tocar_falso)
+    _sem_threads(monkeypatch)
     midia = _MidiaFalsa()
     ctrl = controlador_mod.ControladorReproducao(player=_PlayerFalso(), midia=midia)
     ctrl.tocar_lista([{"titulo": t, "artista": "X"} for t in "ABC"], "playlist:P")
@@ -257,3 +258,114 @@ def test_teclas_multimidia_controlam_o_player(monkeypatch):
     ctrl.encerrar()
     ctrl.deleteLater()
     _APP.processEvents()
+
+
+# ---------------- resolução fora da interface, pré-resolução e falhas ----------------
+
+def _resolvido_valido(titulo, artista):
+    resolvido = _resolvido(titulo, artista)
+    resolvido.expires_at = float("inf")
+    return resolvido
+
+
+def test_proxima_da_fila_ja_fica_resolvida_e_nao_resolve_de_novo(controlador, monkeypatch):
+    pedidos = []
+
+    def resolver(titulo, artista, url=None):
+        pedidos.append(titulo)
+        return _resolvido_valido(titulo, artista)
+
+    monkeypatch.setattr(controlador_mod.orquestrador, "resolver_faixa", resolver)
+    controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "ABC"], "playlist:P")
+    assert pedidos == ["A", "B"]  # B achada com antecedência, enquanto A toca
+    controlador.proxima()
+    assert controlador.faixa_atual["titulo"] == "B"
+    assert pedidos == ["A", "B", "C"]  # B não foi resolvida de novo; C já está a caminho
+
+
+def test_aleatorio_nao_pre_resolve(controlador, monkeypatch):
+    pedidos = []
+    monkeypatch.setattr(
+        controlador_mod.orquestrador, "resolver_faixa",
+        lambda titulo, artista, url=None: pedidos.append(titulo) or _resolvido_valido(titulo, artista),
+    )
+    controlador.aleatorio = True
+    controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "ABC"], "playlist:P")
+    assert pedidos == ["A"]
+
+
+def test_tocar_faixa_repassa_o_video_exato_da_busca(controlador, monkeypatch):
+    urls = []
+    monkeypatch.setattr(
+        controlador_mod.orquestrador, "resolver_faixa",
+        lambda titulo, artista, url=None: urls.append(url) or _resolvido(titulo, artista),
+    )
+    controlador.tocar_faixa("A", "Canal", origem="busca", url="https://www.youtube.com/watch?v=abc")
+    assert urls == ["https://www.youtube.com/watch?v=abc"]
+    assert controlador.faixa_atual["origem"] == "busca"
+
+
+def test_pedido_novo_substitui_o_que_ainda_resolvia(controlador, monkeypatch):
+    """Clicar em outra faixa enquanto a primeira ainda resolve: só a última toca."""
+    pendentes = []
+    monkeypatch.setattr(
+        controlador_mod.ControladorReproducao, "_despachar_resolucao",
+        lambda self, chave, titulo, artista, url=None: pendentes.append((chave, titulo, artista)),
+    )
+    controlador.tocar_faixa("A", "X")
+    controlador.tocar_faixa("B", "X")
+    for chave, titulo, artista in pendentes:
+        controlador._ao_resolver(chave, _resolvido(titulo, artista))
+    assert controlador.faixa_atual["titulo"] == "B"
+    assert [t[0] for t in controlador.player.tocadas] == ["B"]
+
+
+def test_sem_internet_para_depois_de_algumas_falhas(controlador, monkeypatch):
+    controlador.tocar_faixa("A", "X")
+    monkeypatch.setattr(controlador_mod.orquestrador, "resolver_faixa", lambda titulo, artista, url=None: None)
+    monkeypatch.setattr(controlador, "iniciar_caos", lambda semente=None: None)
+    for letra in "BCDEFGHIJ":
+        controlador.fila.adicionar(letra, "X")
+    controlador.proxima()
+    assert controlador.faixa_atual["titulo"] == "A"
+    # parou na 5ª falha: não esvaziou a fila inteira tentando
+    assert len(controlador.fila) == 9 - controlador_mod.MAXIMO_FALHAS_SEGUIDAS
+
+
+def test_erro_do_mpv_resolve_de_novo_e_continua_da_mesma_posicao(controlador):
+    controlador.tocar_faixa("A", "X")
+    controlador.player.posicao_segundos = 95.0
+    controlador._atualizar_progresso()
+    controlador.player.posicao_segundos = None  # o MPV largou a faixa
+    controlador._ao_erro_do_player()
+    assert controlador.player.tocadas[-1] == ("A", False, 95.0)
+    assert controlador.faixa_atual["titulo"] == "A"
+    assert len(controlador._historico_sessao) == 1  # não conta como outra reprodução
+
+
+def test_segundo_erro_do_mpv_na_mesma_faixa_pula_para_a_proxima(controlador):
+    controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "AB"], "playlist:P")
+    controlador._ao_erro_do_player()
+    controlador._ao_erro_do_player()
+    assert controlador.faixa_atual["titulo"] == "B"
+
+
+def test_mpv_sem_faixa_com_a_interface_tocando_recupera(controlador, monkeypatch):
+    controlador.player.diagnostico = lambda: {"idle_active": True, "core_idle": True}
+    controlador.player.recarregar_audio = lambda: None
+    controlador.tocar_faixa("A", "X")
+    controlador.player.posicao_segundos = 44.0
+    agora = [1000.0]
+    monkeypatch.setattr(controlador_mod.time, "monotonic", lambda: agora[0])
+    controlador._atualizar_progresso()
+    agora[0] += controlador_mod.LIMITE_POSICAO_PARADA + 1
+    controlador._atualizar_progresso()
+    assert controlador.player.tocadas[-1] == ("A", False, 44.0)
+
+
+def test_voto_fica_pendente_para_o_echo(controlador):
+    from siren.core import votos_pendentes as votos_pendentes_mod
+    controlador.votar_faixa({"titulo": "A", "artista": "X"}, True)
+    controlador.votar_faixa({"titulo": "A", "artista": "X"}, False)
+    pendentes = votos_pendentes_mod.listar()
+    assert [(p["titulo"], p["voto"]) for p in pendentes] == [("A", "negativo")]  # só o mais recente

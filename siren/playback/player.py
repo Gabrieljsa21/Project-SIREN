@@ -10,6 +10,7 @@ class Player:
     def __init__(self):
         self._mpv = mpv.MPV(video=False, ytdl=False)
         self._callback_fim_de_faixa = None
+        self._callback_erro = None
 
         @self._mpv.event_callback("end-file")
         def _ao_terminar_arquivo(event):
@@ -20,8 +21,20 @@ class Player:
             (2026-09-06, usuário: "quando clico em caos, só toca 1
             música") - faltava isso, o Caos nunca continuava sozinho."""
             dados = event.data
-            if dados is not None and dados.reason == mpv.MpvEventEndFile.EOF and self._callback_fim_de_faixa:
+            if dados is None:
+                return
+            if dados.reason == mpv.MpvEventEndFile.EOF and self._callback_fim_de_faixa:
                 self._callback_fim_de_faixa()
+            elif dados.reason == mpv.MpvEventEndFile.ERROR and self._callback_erro:
+                self._callback_erro()
+
+    def observar_erro(self, callback):
+        """`callback()` chamado quando o MPV desiste da faixa por erro (não
+        abriu, ou o stream caiu no meio - por exemplo o endereço do YouTube
+        venceu durante uma pausa longa). Antes esse fim era ignorado e a
+        música parava em silêncio, com a interface ainda mostrando
+        "tocando"."""
+        self._callback_erro = callback
 
     def observar_fim_de_faixa(self, callback):
         """`callback()` chamado quando a faixa atual termina de tocar
@@ -71,7 +84,7 @@ class Player:
 
     def diagnostico(self):
         """Propriedades do MPV que explicam uma posição parada, pro log."""
-        nomes = ("time_pos", "playback_time", "audio_pts", "core_idle", "paused_for_cache", "seeking", "eof_reached", "current_ao")
+        nomes = ("time_pos", "playback_time", "audio_pts", "core_idle", "idle_active", "paused_for_cache", "seeking", "eof_reached", "current_ao")
         dados = {}
         for nome in nomes:
             try:
@@ -79,6 +92,14 @@ class Player:
             except Exception as e:
                 dados[nome] = f"erro: {e}"
         return dados
+
+    @property
+    def ocioso(self):
+        """O MPV não tem faixa nenhuma carregada (acabou, ou desistiu dela)."""
+        try:
+            return bool(self._mpv.idle_active)
+        except Exception:
+            return False
 
     @property
     def pausado(self):

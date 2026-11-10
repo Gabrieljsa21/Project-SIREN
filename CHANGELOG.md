@@ -4,6 +4,33 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-09
+
+Revisão do projeto a partir de 34 dias de log real (3.282 faixas tocadas).
+
+### Corrigido
+
+- **A música parava em silêncio quando o MPV perdia a faixa (2026-11-09)** - o log tinha 112 registros de "POSIÇÃO PARADA", muitos com o MPV sem faixa nenhuma e a interface ainda em "tocando" (um caso ficou 28 minutos assim). O `Player` só reagia ao fim de faixa normal e ignorava o fim por erro (endereço do YouTube vencido depois de uma pausa longa, conexão que caiu). Agora `Player.observar_erro` avisa o controlador, que acha o áudio de novo e continua da mesma posição (`_recuperar_faixa`); se a mesma faixa falhar outra vez, pula para a próxima. A vigia de posição parada também recupera quando o MPV está sem faixa (`idle_active`) ou parado de verdade por 20 s depois de recriar a saída de áudio. Com o MPV sem faixa, o play acha o áudio de novo em vez de não fazer nada. Validado ao vivo: erro forçado em 62 s, a faixa voltou sozinha no mesmo ponto.
+- **Trocar de faixa congelava a janela (2026-11-09)** - `tocar_faixa` chamava o yt-dlp na thread da interface, e o plano B do resolver podia abrir até 10 vídeos em sequência. A resolução passou para uma thread (`_ResolverWorker`): a chamada volta na hora, o player mostra "Carregando artista - título…" e a faixa anterior segue tocando até a nova ficar pronta. Um pedido novo substitui o que ainda resolvia. Medido ao vivo: a primeira resolução levou 8 s com a interface respondendo (maior pausa 0,9 s, antes eram os 8 s inteiros).
+- **A Busca podia tocar um vídeo diferente do clicado (2026-11-09)** - o clique mandava só título e canal, e o resolver pesquisava de novo por texto. Agora o endereço do resultado vai até o resolver (`resolver_stream(..., url=)`), que abre exatamente aquele vídeo; se ele não tocar, cai na pesquisa por texto.
+- **Voto travava a janela e se perdia com o ECHO desligado (2026-11-09)** - o envio ao ECHO era feito na thread da interface, com espera de até 15 s. Agora o voto vale na hora nas playlists locais, entra em `data/votos_pendentes.json` (`core/votos_pendentes.py`) e é enviado em segundo plano; fica na fila até o ECHO responder e é reenviado ao abrir o SIREN e a cada voto novo. Só o voto mais recente de cada faixa fica na fila, e um voto recusado 30 vezes é descartado com registro no log.
+- **Cinco arquivos de `data/` podiam ficar pela metade (2026-11-09)** - `config`, `favoritos`, `historico_local`, `downloads` e `cache_faixas` gravavam direto no arquivo final, a mesma falha que apagou as Curtidas em outubro e que só `playlists` e `sessao` tinham corrigido. Todos usam agora `core/arquivos.gravar_json` (arquivo temporário e troca de uma vez).
+- **Sem internet, o SIREN não esvazia mais a fila tentando (2026-11-09)** - depois de 5 faixas seguidas sem resolver, para e avisa, em vez de descartar a fila inteira ou pedir Caos sem parar.
+- **Primeira faixa de uma playlist ou do Caos que não resolve (2026-11-09)** - antes nada tocava; agora segue para a próxima.
+
+### Adicionado
+
+- **Próxima faixa resolvida com antecedência (2026-11-09)** - enquanto uma faixa toca, o áudio da próxima da fila já é achado em segundo plano, e a troca sai em menos de 1 s (medido ao vivo). Com o Aleatório ligado não há pré-resolução, porque a próxima só é sorteada na hora. O prazo de validade do endereço (`expires_at`), que existia sem uso, passou a valer aqui.
+- **Erros do yt-dlp no log (2026-11-09)** - o resolver, o download e o importador usavam `print`, que se perde com o `pythonw`. As 77 falhas "ERRO ao resolver" do log não tinham a causa. Agora cada erro do yt-dlp vai para `logs/` com a mensagem.
+- **Limpeza de logs (2026-11-09)** - arquivos de `logs/` com mais de 60 dias são apagados, uma vez por dia.
+- **Lint (2026-11-09)** - `ruff` nas dependências de desenvolvimento, só com erros de verdade (nome indefinido, import sem uso). O código atual passa limpo.
+
+### Alterado
+
+- **Menos leitura e gravação de arquivo grande (2026-11-09)** - a consulta de voto relia `playlists.json` (205 KB) a cada faixa e a cada linha de lista; agora o resultado fica em memória e só é refeito quando o arquivo muda. O `cache_faixas.json` (250 KB) era regravado inteiro a cada faixa e a cada resposta do ECHO; agora as mudanças são juntadas e gravadas a cada 5 s e ao fechar.
+- **`.gitignore`** - `data/downloads/`, `data/backups/` e temporários de `data/` ignorados (a pasta `data/` aparecia como não rastreada). As três cópias manuais antigas de playlists foram movidas para `data/backups/`.
+- **`docs/TODO.md`** - saiu "Confirmar auto-avanço do Caos": os logs mostram milhares de faixas encadeadas sozinhas. Entraram a divisão do `main_window.py`, o CI e o resolver em processo separado.
+
 ## [0.3.0] - 2026-10-26
 
 ### Adicionado

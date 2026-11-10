@@ -9,14 +9,23 @@ Duas fontes, que se completam:
   resolvedor, gravada aqui.
 
 Um campo já conhecido nunca é apagado por uma resposta sem ele."""
+import atexit
 import json
-import os
 import threading
+
+from siren.core.arquivos import gravar_json
 
 ARQUIVO_CACHE = "data/cache_faixas.json"
 
+# O arquivo passa de 250 KB e era regravado inteiro a cada faixa tocada e a
+# cada resposta do ECHO (dezenas por lista aberta). Agora a gravação espera
+# este intervalo e junta as mudanças; `descarregar` grava o que faltar ao
+# fechar. 0 grava na hora (testes).
+INTERVALO_GRAVACAO = 5.0
+
 _lock = threading.Lock()
 _memoria = None
+_gravacao_agendada = None
 
 
 def _id(titulo, artista):
@@ -35,9 +44,33 @@ def _carregar():
 
 
 def _salvar():
-    os.makedirs(os.path.dirname(ARQUIVO_CACHE), exist_ok=True)
-    with open(ARQUIVO_CACHE, "w", encoding="utf-8") as f:
-        json.dump(_memoria, f, ensure_ascii=False, indent=2)
+    """Chamado com `_lock` preso."""
+    global _gravacao_agendada
+    if INTERVALO_GRAVACAO <= 0:
+        gravar_json(ARQUIVO_CACHE, _memoria)
+        return
+    if _gravacao_agendada is None:
+        _gravacao_agendada = threading.Timer(INTERVALO_GRAVACAO, descarregar)
+        _gravacao_agendada.daemon = True
+        _gravacao_agendada.start()
+
+
+def descarregar():
+    """Grava agora o que estiver esperando (fim do intervalo, ou o SIREN
+    fechando)."""
+    global _gravacao_agendada
+    with _lock:
+        agendada, _gravacao_agendada = _gravacao_agendada, None
+        if agendada is None or _memoria is None:
+            return
+        agendada.cancel()
+        try:
+            gravar_json(ARQUIVO_CACHE, _memoria)
+        except OSError:
+            pass  # cache: perder uma gravação só custa uma consulta a mais
+
+
+atexit.register(descarregar)
 
 
 def obter(titulo, artista):

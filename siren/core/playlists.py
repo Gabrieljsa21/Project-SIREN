@@ -6,9 +6,9 @@ faixas provavelmente combinam, nunca o que fica salvo de fato)."""
 import os
 import json
 import shutil
-import time
 
 from siren.core import registro as registro_mod
+from siren.core.arquivos import gravar_json
 
 ARQUIVO_PLAYLISTS = "data/playlists.json"
 # Coleção automática removida em 2026-09-25 (era um subconjunto de Músicas
@@ -57,25 +57,8 @@ def _salvar(playlists):
     """Grava num temporário e troca de uma vez (`os.replace`): fechar o SIREN
     no meio da gravação não deixa mais o arquivo pela metade. Depois, a
     versão nova é copiada para o `.bak` que `carregar` usa de reserva."""
-    os.makedirs(os.path.dirname(ARQUIVO_PLAYLISTS), exist_ok=True)
-    temporario = ARQUIVO_PLAYLISTS + ".tmp"
-    with open(temporario, "w", encoding="utf-8") as f:
-        json.dump(playlists, f, ensure_ascii=False, indent=2)
-    _trocar(temporario, ARQUIVO_PLAYLISTS)
+    gravar_json(ARQUIVO_PLAYLISTS, playlists)
     shutil.copyfile(ARQUIVO_PLAYLISTS, _caminho_backup())
-
-
-def _trocar(origem, destino):
-    """`os.replace` no Windows falha se outro processo estiver lendo o
-    destino naquele instante; tenta de novo algumas vezes."""
-    for tentativa in range(5):
-        try:
-            os.replace(origem, destino)
-            return
-        except PermissionError:
-            if tentativa == 4:
-                raise
-            time.sleep(0.05)
 
 
 def listar():
@@ -172,12 +155,31 @@ def votos_locais():
     """`{id da faixa: "positivo"|"negativo"}` a partir das duas playlists de
     voto, lidas uma vez só - pra marcar o voto de muitas faixas de uma vez
     (lista de uma playlist, 2026-10-14) sem varrer as coleções por faixa."""
+    global _cache_votos
+    assinatura = _assinatura_arquivo()
+    if _cache_votos is not None and _cache_votos[0] == assinatura:
+        return _cache_votos[1]
     playlists = carregar()
     votos = {}
     for nome, voto in ((NOME_PLAYLIST_NAO_CURTIDAS, "negativo"), (NOME_PLAYLIST_CURTIDAS, "positivo")):
         for faixa in playlists.get(nome, []):
             votos[_track_id(faixa["titulo"], faixa["artista"])] = voto
+    _cache_votos = (assinatura, votos)
     return votos
+
+
+# (assinatura do arquivo, votos): o arquivo passa de 200 KB e a consulta de
+# voto acontece a cada faixa que toca e a cada linha de lista. Relido só
+# quando o arquivo muda (inclusive por outro processo, na troca de modo).
+_cache_votos = None
+
+
+def _assinatura_arquivo():
+    try:
+        info = os.stat(ARQUIVO_PLAYLISTS)
+        return (ARQUIVO_PLAYLISTS, info.st_mtime_ns, info.st_size)
+    except OSError:
+        return (ARQUIVO_PLAYLISTS, None, None)
 
 
 def voto_local(titulo, artista, votos=None):
