@@ -4,6 +4,7 @@ resolver e o caminho com thread de verdade do controlador."""
 import datetime
 import json
 import os
+import threading
 import time
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -135,10 +136,15 @@ class _PlayerFalso:
 
 
 def test_resolucao_roda_em_thread_e_a_chamada_volta_na_hora(monkeypatch):
-    """`tocar_faixa` não espera a rede: volta na hora e a faixa começa
-    quando a thread termina."""
+    """`tocar_faixa` não espera a rede: o resolvedor só termina depois que a
+    chamada já voltou (se rodasse na mesma thread, esperaria o sinal até o
+    prazo e o teste falharia). Sem medir relógio, que oscila com a máquina
+    carregada."""
+    chamada_voltou = threading.Event()
+    viu_a_chamada_voltar = []
+
     def resolver_lento(titulo, artista, url=None):
-        time.sleep(0.4)
+        viu_a_chamada_voltar.append(chamada_voltou.wait(timeout=5))
         return ResolvedStream(url="u", title=titulo, artist=artista, duration=100, thumbnail=None,
                               source="teste", expires_at=float("inf"))
 
@@ -147,14 +153,14 @@ def test_resolucao_roda_em_thread_e_a_chamada_volta_na_hora(monkeypatch):
     ctrl = controlador_mod.ControladorReproducao(player=_PlayerFalso(), midia=False)
     mensagens = []
     ctrl.mensagem.connect(mensagens.append)
-    inicio = time.monotonic()
     ctrl.tocar_faixa("A", "X")
-    assert time.monotonic() - inicio < 0.2
+    chamada_voltou.set()
     assert ctrl.faixa_atual is None and mensagens == ["Carregando X - A…"]
-    prazo = time.monotonic() + 5
+    prazo = time.monotonic() + 10
     while ctrl.faixa_atual is None and time.monotonic() < prazo:
         _APP.processEvents()
         time.sleep(0.01)
+    assert viu_a_chamada_voltar == [True]
     assert ctrl.faixa_atual["titulo"] == "A"
     assert ctrl.player.tocadas == ["A"]
     ctrl.encerrar()

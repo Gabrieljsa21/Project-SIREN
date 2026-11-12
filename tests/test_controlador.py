@@ -69,6 +69,10 @@ def _sem_threads(monkeypatch):
 
     monkeypatch.setattr(controlador_mod.ControladorReproducao, "_despachar_resolucao", resolver_na_hora)
     monkeypatch.setattr(controlador_mod.ControladorReproducao, "_despachar_envio_votos", lambda self: None)
+    monkeypatch.setattr(
+        controlador_mod.ControladorReproducao, "_despachar_feedback_passivo",
+        lambda self, *dados: self.__dict__.setdefault("escutas", []).append(dados),
+    )
 
 
 @pytest.fixture
@@ -369,3 +373,45 @@ def test_voto_fica_pendente_para_o_echo(controlador):
     controlador.votar_faixa({"titulo": "A", "artista": "X"}, False)
     pendentes = votos_pendentes_mod.listar()
     assert [(p["titulo"], p["voto"]) for p in pendentes] == [("A", "negativo")]  # só o mais recente
+
+
+# ---------------- tempo de escuta pro ECHO ----------------
+
+def test_faixa_pulada_manda_a_fracao_ouvida(controlador):
+    controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "AB"], "playlist:P")
+    controlador.player.posicao_segundos = 30.0
+    controlador._atualizar_progresso()
+    controlador.proxima()
+    assert controlador.escutas == [("X", "A", 30.0 / 200, True, 30.0)]
+
+
+def test_faixa_que_acaba_sozinha_conta_inteira(controlador):
+    controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "ABC"], "playlist:P")
+    controlador.player.posicao_segundos = 199.0
+    controlador._atualizar_progresso()
+    controlador._ao_fim_de_faixa()
+    assert controlador.escutas == [("X", "A", 1.0, False, None)]
+    controlador.proxima()  # B pulada logo no começo
+    assert controlador.escutas[-1][1:4] == ("B", 0.0, True)
+
+
+def test_faixa_largada_por_erro_nao_conta_como_pulo(controlador):
+    controlador.tocar_lista([{"titulo": t, "artista": "X"} for t in "AB"], "playlist:P")
+    controlador._ao_erro_do_player()
+    controlador._ao_erro_do_player()  # falhou de novo: pula para B
+    assert controlador.faixa_atual["titulo"] == "B"
+    assert getattr(controlador, "escutas", []) == []
+
+
+def test_retomada_que_nunca_tocou_nao_conta(controlador):
+    sessao_mod.salvar("A", "X", "fila", 50.0, 200)
+    controlador.retomar_sessao()
+    controlador._retomada = None  # áudio carregado, ainda pausado
+    controlador.tocar_faixa("B", "X")
+    assert getattr(controlador, "escutas", []) == []
+
+
+def test_encerrar_nao_manda_escuta(controlador):
+    controlador.tocar_faixa("A", "X")
+    controlador.encerrar()
+    assert getattr(controlador, "escutas", []) == []
