@@ -92,6 +92,21 @@ def enviar_feedback(artista, titulo, feedback, abrir_prova=True):
     })
 
 
+def enviar_feedback_passivo(artista, titulo, fracao_tocada, pulado, momento_do_skip=None):
+    """`/radar/feedback_passivo` (2026-11-12) - quanto de cada faixa foi
+    ouvido, pedido da sessão do ECHO: só o ERIS mandava, e o ajuste por
+    faixa pulada cedo ou ouvida até o fim estava sem dado do SIREN.
+    `fracao_tocada`: 0 a 1, ou `None` com a duração desconhecida.
+    `momento_do_skip`: segundos em que foi pulada (`None` se acabou sozinha).
+    Sinal fraco: o ECHO só mexe no perfil depois de vários sinais
+    consistentes do mesmo artista. Devolve `{"ajustou_peso": bool}` ou
+    `None` se o ECHO não respondeu (perder um é aceitável, não há fila)."""
+    return _post("/radar/feedback_passivo", {
+        "discord_user_id": DONO_DISCORD_ID, "artista": artista, "titulo": titulo,
+        "fracao_tocada": fracao_tocada, "pulado": bool(pulado), "momento_do_skip": momento_do_skip,
+    })
+
+
 def remover_voto(artista, titulo):
     """`/radar/remover_voto` (2026-10-12) - clicar de novo no 👍/👎 já
     marcado: a faixa volta a não ter voto no ECHO, que desfaz o ajuste de

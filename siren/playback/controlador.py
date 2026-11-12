@@ -16,6 +16,7 @@ Reúne:
 - capa real (thumbnail do YouTube, baixada em segundo plano);
 - retomar a última faixa ao reabrir (`core/sessao.py`), carregada pausada;
 - eventos de reprodução pro LOKI (`integrations/loki_events.py`);
+- tempo de escuta de cada faixa pro ECHO (`/radar/feedback_passivo`);
 - teclas multimídia do teclado e painel de mídia do Windows
   (`integrations/midia_windows.py`).
 
@@ -24,6 +25,7 @@ Nada aqui espera a rede na thread da interface: achar o áudio de uma faixa
 próxima faixa da fila já fica resolvida enquanto a atual toca."""
 import os
 import re
+import threading
 import time
 from collections import Counter
 
@@ -250,6 +252,11 @@ class ControladorReproducao(QObject):
         self._ultima_posicao_real = 0.0  # última posição que o MPV informou de verdade
         self._worker_votos = None
         self._reenviar_votos = False
+        # Tempo de escuta pro ECHO: só conta faixa que tocou de verdade (uma
+        # retomada que nunca saiu da pausa, ou uma faixa que o MPV largou
+        # por erro, não é "pulada" pelo usuário).
+        self._escuta_valida = False
+        self._fim_natural = False
 
         self._retomada = None  # {"faixa", "posicao"} enquanto o áudio da faixa retomada não está carregado
         self._tocar_ao_retomar = False
@@ -411,7 +418,9 @@ class ControladorReproducao(QObject):
 
     def _comecar_faixa(self, pedido, resolvido):
         titulo, artista, origem = pedido["titulo"], pedido["artista"], pedido["origem"]
+        self._registrar_escuta_da_anterior()
         orquestrador.tocar_resolvido(self.player, resolvido, titulo, artista, origem=origem)
+        self._escuta_valida = True
         self._falhas_seguidas = 0
         self._recuperou_faixa = False
         self._ultima_posicao_real = 0.0
@@ -436,6 +445,35 @@ class ControladorReproducao(QObject):
             self._garantir_fila_caos()
         self._eventos_loki.faixa_iniciada(titulo, artista, origem=origem, duracao=resolvido.duration)
         self._pre_resolver_proxima()
+
+    # ---------------- tempo de escuta pro ECHO ----------------
+
+    def _registrar_escuta_da_anterior(self):
+        """Chamado quando outra faixa vai começar: manda ao ECHO quanto da
+        faixa que sai foi ouvido. Acabou sozinha = ouvida inteira; trocada
+        antes (próxima, anterior, 👎, clique noutra faixa) = pulada naquele
+        segundo."""
+        faixa, valida, natural = self.faixa_atual, self._escuta_valida, self._fim_natural
+        self._escuta_valida = False
+        self._fim_natural = False
+        if not faixa or not valida:
+            return
+        if natural:
+            fracao, momento = 1.0, None
+        else:
+            momento = round(self._ultima_posicao_real, 1)
+            fracao = min(1.0, momento / self.duracao) if self.duracao else None
+        registrar(
+            f"ESCUTA {faixa['artista']} - {faixa['titulo']}: "
+            + ("até o fim" if natural else f"pulada em {momento:.0f}s" + (f" ({fracao:.0%})" if fracao is not None else ""))
+        )
+        self._despachar_feedback_passivo(faixa["artista"], faixa["titulo"], fracao, not natural, momento)
+
+    def _despachar_feedback_passivo(self, artista, titulo, fracao, pulado, momento):
+        """Fora da thread da interface; falha (ECHO fora do ar) é ignorada."""
+        threading.Thread(
+            target=echo_client.enviar_feedback_passivo, args=(artista, titulo, fracao, pulado, momento), daemon=True,
+        ).start()
 
     def _pre_resolver_proxima(self):
         """Acha com antecedência o áudio da próxima faixa da fila, para a
@@ -466,6 +504,7 @@ class ControladorReproducao(QObject):
         faixa = self.faixa_atual
         if self._recuperou_faixa:
             registrar(f"FAIXA falhou de novo ({motivo}), pulando: {faixa['artista']} - {faixa['titulo']}")
+            self._escuta_valida = False
             self._falhas_seguidas += 1
             if self._falhas_seguidas < MAXIMO_FALHAS_SEGUIDAS:
                 self._tocar_proxima_da_fila()
@@ -486,6 +525,7 @@ class ControladorReproducao(QObject):
     def _concluir_recuperacao(self, pedido, resolvido):
         if resolvido is None:
             registrar(f"ERRO ao recuperar {pedido['artista']} - {pedido['titulo']}: não resolveu")
+            self._escuta_valida = False
             self._falhas_seguidas += 1
             if self._falhas_seguidas < MAXIMO_FALHAS_SEGUIDAS:
                 self._tocar_proxima_da_fila()
@@ -552,6 +592,7 @@ class ControladorReproducao(QObject):
 
     def _ao_fim_de_faixa(self):
         self._eventos_loki.faixa_encerrada("fim")
+        self._fim_natural = True
         self.proxima()
 
     def alternar_play_pause(self):
@@ -828,6 +869,7 @@ class ControladorReproducao(QObject):
         titulo, artista, origem = dados["titulo"], dados["artista"], dados.get("origem") or "fila"
         posicao = float(dados.get("posicao") or 0)
         self.faixa_atual = {"titulo": titulo, "artista": artista, "origem": origem}
+        self._ultima_posicao_real = posicao
         self._historico_sessao.append(self.faixa_atual)
         self._excluidos_sessao.append(id_faixa(titulo, artista))
         self._retomada = {
@@ -880,6 +922,7 @@ class ControladorReproducao(QObject):
 
     def _iniciar_reproducao_retomada(self):
         faixa = self.faixa_atual
+        self._escuta_valida = True  # a retomada só conta depois que tocou
         self._definir_tocando(True)
         self._eventos_loki.faixa_iniciada(faixa["titulo"], faixa["artista"], origem=faixa.get("origem", "fila"), duracao=self.duracao or None)
         if faixa.get("origem") == "caos":

@@ -4,6 +4,16 @@ Este arquivo registra as mudanças importantes do projeto. O formato segue o [Ke
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
+### Adicionado
+
+- **Tempo de escuta enviado ao ECHO (2026-11-12)** - pedido da sessão do ECHO: a rota `/radar/feedback_passivo` só recebia dado do ERIS, e o ajuste por faixa pulada cedo ou ouvida até o fim estava sem informação do SIREN desde 2026-09-06. Quando outra faixa começa, o SIREN manda quanto da anterior foi ouvido: fração 1,0 se acabou sozinha; se foi trocada antes (próxima, anterior, não curtir, clique noutra faixa), a fração e o segundo em que saiu (`echo_client.enviar_feedback_passivo`). O envio roda numa thread e falha em silêncio com o ECHO desligado (sinal fraco, sem fila de pendentes). Não contam como pulo: faixa que o MPV largou por erro, retomada que nunca saiu da pausa e fechar o SIREN. Cada envio aparece no log como `ESCUTA artista - título: até o fim` ou `pulada em Ns (P%)`.
+
+### Corrigido
+
+- **Teste de thread instável (2026-11-12)** - `test_resolucao_roda_em_thread_e_a_chamada_volta_na_hora` media o relógio e falhava com a máquina carregada; agora usa um evento que só é liberado depois de a chamada voltar.
+
 ## [0.4.0] - 2026-11-09
 
 Revisão do projeto a partir de 34 dias de log real (3.282 faixas tocadas).
